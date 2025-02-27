@@ -39,13 +39,14 @@ The backend will start at:
 http://localhost:5002
 
 API Endpoints
-Authentication
-Method	Endpoint	Description
-POST	/api/auth/register	Registers a new user and stores details in a JSON file
-POST	/api/auth/login	Authenticates a user and returns a JWT token
+
+
+POST	/api/auth/register	--> Registers a new user and stores details in a JSON file
+POST	/api/auth/login -->	Authenticates a user and returns a JWT token
+
 Testing with Postman
 Open Postman
-Use POST requests for /api/auth/register and /api/auth/login
+Use POST requests for /api/auth/register to test register and /api/auth/login to test login
 Ensure you pass email and password in the request body
 For login, use the JWT token for authenticated requests
 

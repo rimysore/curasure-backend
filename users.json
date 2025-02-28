@@ -3,5 +3,30 @@
     "email": "rimysore@iu.edu",
     "password": "$2b$10$pdfy.y6KDsJO2AZibIJcveF/Vax0UY4o2DNOWBhd.iQHGyRJEhsQC",
     "role": "Doctor"
+  },
+  {
+    "email": "rimysore@iub.edu",
+    "password": "$2b$10$Th08CSnW.mkGXwjaqdJl.eHekdhaX6hRitOKOl9yo7haAGZO9anTy",
+    "role": "insurance"
+  },
+  {
+    "email": "rimysore",
+    "password": "$2b$10$cEQ00ld/NBSzg1qF.UMejescCKUu06K2xu8EUpke7vSsWg.rDJWnm",
+    "role": "insurance"
+  },
+  {
+    "email": "rith",
+    "password": "$2b$10$VdAMRJ0LrNH2scozZZ2tA.NGb0kfXHF8TTaplZewjv0NUfdXwyT6u",
+    "role": "insurance"
+  },
+  {
+    "email": "testingmail@gamil.com",
+    "password": "$2b$10$a74WN4dezR.jEKGCP1L4fuTSmn40r9QJDZJnhWv9p9NMPUQejYk.q",
+    "role": "insurance"
+  },
+  {
+    "email": "rithviksit@gmail.com",
+    "password": "$2b$10$PuZW3W6vGabnrp1IptjRAuYXg./V2h5TNisZw43ZyDR98zA2w6E5e",
+    "role": "patient"
   }
 ]

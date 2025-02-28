@@ -2,6 +2,8 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const { Strategy: JwtStrategy, ExtractJwt } = require('passport-jwt');  // Add this line
 
 // File path for the users JSON file
 const USERS_FILE = path.join(__dirname, '../data/users.json');
@@ -47,6 +49,8 @@ passport.use(
           googleId: profile.id,
           name: profile.displayName,
           email: profile.emails[0].value,
+          role: 'user',  // Set default role or adjust as needed
+          googleAccessToken: accessToken,  // Store the Google access token if needed
         };
 
         // Add the new user to the users array
@@ -71,3 +75,20 @@ passport.deserializeUser((googleId, done) => {
   const user = users.find(u => u.googleId === googleId);
   done(null, user);  // Pass the user object to the session
 });
+
+// Add a custom JWT authentication strategy to verify users with a JWT token
+passport.use('jwt', new JwtStrategy(
+  {
+    secretOrKey: process.env.JWT_SECRET,
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  },
+  (jwtPayload, done) => {
+    const users = readUsersFromFile();
+    const user = users.find(u => u.email === jwtPayload.email); // Verify if the user exists by email
+
+    if (!user) {
+      return done(null, false, { message: 'User not found' });
+    }
+    return done(null, user);  // User found, proceed with the JWT authentication
+  }
+));

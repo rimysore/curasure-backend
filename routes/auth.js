@@ -11,12 +11,12 @@ require('dotenv').config();
 
 const router = express.Router();
 const USERS_FILE = path.join(__dirname, '../users.json');
+const axios = require('axios');
 
-// Function to validate email format
-const isValidEmail = (email) => {
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  return emailRegex.test(email);
-};
+// Duo Credentials
+const duoIkey = process.env.DUO_INTEGRATION_KEY;
+const duoSkey = process.env.DUO_SECRET_KEY;
+const duoApiHost = process.env.DUO_API_HOSTNAME;
 
 // Configure Nodemailer to use Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -26,6 +26,119 @@ const transporter = nodemailer.createTransport({
     pass: process.env.MAIL_PASS   // Your Google app password
   }
 });
+
+// Helper Function to generate Duo TX (transaction)
+const generateDuoTx = (username) => {
+  const requestPayload = {
+    'username': username,
+    'factor': 'Push',  // Use Push, Passcode, or SMS for Duo authentication
+    'device': 'auto'  // Auto-device selection or specify a specific device
+  };
+
+  return axios.post(`https://${duoApiHost}/admin/v1/auth/prompt`, requestPayload, {
+    headers: {
+      'Authorization': `Basic ${Buffer.from(duoIkey + ':' + duoSkey).toString('base64')}`,
+    },
+  })
+  .then(response => response.data.tx)
+  .catch(error => {
+    console.error('Duo API Error:', error);
+    throw new Error('Failed to generate Duo transaction');
+  });
+};
+
+// Duo Authentication Route
+router.post('/duo-auth', (req, res) => {
+  const username = req.body.email;  // Get the username (email) from the authenticated user
+
+  // Step 1: Generate Duo Authentication Request
+  generateDuoTx(username)
+    .then((tx) => {
+      if (tx) {
+        const duoUrl = `https://${duoApiHost}/frame/web/v1/auth?tx=${tx}`;
+        // Return the Duo URL to the frontend
+        res.json({ duo_url: duoUrl });
+      } else {
+        res.status(500).json({ message: 'Failed to generate Duo transaction' });
+      }
+    })
+    .catch((error) => {
+      console.error('Error during Duo authentication:', error);
+      res.status(500).json({ message: 'Error initiating Duo authentication' });
+    });
+});
+
+// Duo Callback Route (after Duo Push response)
+router.post('/duo-callback', (req, res) => {
+  const { tx, sig_response } = req.body;  // Duo response from frontend
+
+  // Step 3: Verify the Duo response
+  verifyDuoResponse(tx, sig_response)
+    .then((authResponse) => {
+      if (authResponse.stat === 'OK') {
+        // Duo authentication successful
+        const token = jwt.sign({ email: req.user.email, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ message: 'Duo authentication successful', token });
+      } else {
+        // Duo authentication failed
+        res.status(400).json({ message: 'Duo authentication failed' });
+      }
+    })
+    .catch((error) => {
+      res.status(500).json({ message: 'Duo authentication error', error });
+    });
+});
+
+// Helper Function to verify Duo response
+const verifyDuoResponse = (tx, sig_response) => {
+  const requestPayload = {
+    'tx': tx,
+    'sig_response': sig_response
+  };
+
+  return axios.post(`https://${duoApiHost}/admin/v1/auth/verify`, requestPayload, {
+    headers: {
+      'Authorization': `Basic ${Buffer.from(duoIkey + ':' + duoSkey).toString('base64')}`,
+    },
+  })
+  .then(response => response.data)
+  .catch(error => {
+    console.error('Duo Verification Error:', error);
+    throw error;
+  });
+};
+
+// Google OAuth Route
+router.get('/google', passport.authenticate('google', {
+  scope: ['profile', 'email']
+}));
+
+// Google OAuth Callback Route
+router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
+  // After successful Google login, the user is authenticated, and 'req.user' contains user data
+  
+  // Step 1: Send the authenticated user information to Duo for the second factor
+  // Call /duo-auth endpoint to start the Duo authentication flow
+
+  axios.post('http://localhost:5002/auth/duo-auth', { email: req.user.email })
+    .then((response) => {
+      // Duo authentication URL returned from /duo-auth
+      const duoUrl = response.data.duo_url;
+
+      // Step 2: Redirect user to Duo authentication page
+      res.redirect(duoUrl);
+    })
+    .catch((error) => {
+      console.error('Error during Duo authentication:', error);
+      res.status(500).json({ message: 'Error initiating Duo authentication' });
+    });
+});
+
+// Function to validate email format
+const isValidEmail = (email) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
 
 // Middleware to verify JWT
 const authMiddleware = (req, res, next) => {
@@ -44,7 +157,7 @@ const authMiddleware = (req, res, next) => {
 
 // Register Route with Email Validation
 router.post('/register', async (req, res) => {
-  const { email, password, role } = req.body;
+  const { email, password, role, theme } = req.body;
 
   if (!isValidEmail(email)) {
     return res.status(400).json({ message: 'Invalid email format' });
@@ -56,7 +169,7 @@ router.post('/register', async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ email, password: hashedPassword, role });
+  users.push({ email, password: hashedPassword, role, theme: theme || 'default' }); // Added theme field
   writeUsersToFile(users);
 
   res.status(201).json({ message: 'User registered successfully' });
@@ -64,20 +177,39 @@ router.post('/register', async (req, res) => {
 
 // Login Route
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please provide email and password' });
+  if (!email || !password || !role) {
+    return res.status(400).json({ message: 'Please provide email, password, and role' });
   }
 
   let users = readUsersFromFile();
-  const user = users.find(user => user.email === email);
+  const user = users.find(user => user.email === email && user.role === role);
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(400).json({ message: 'Invalid email or password' });
+    return res.status(400).json({ message: 'Invalid email, password, or role' });
   }
 
-  const token = jwt.sign({ email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
   res.json({ message: 'Login successful', token });
+});
+
+// Home Route (Before Login & After Logout)
+router.get('/', (req, res) => {
+  res.send('<h1>Welcome to the Patient & Insurance Management System</h1><p>Please login to access your account.</p>');
+});
+
+// Role-based Home Pages
+router.get('/dashboard', authMiddleware, (req, res) => {
+  const role = req.user.role;
+  if (role === 'patient') {
+    res.send('<h1>Welcome, Patient</h1><p>Here is your personal dashboard.</p>');
+  } else if (role === 'doctor') {
+    res.send('<h1>Welcome, Doctor</h1><p>Here is your doctor dashboard.</p>');
+  } else if (role === 'insurance_provider') {
+    res.send('<h1>Welcome, Insurance Provider</h1><p>Here is your insurance provider dashboard.</p>');
+  } else {
+    res.status(400).json({ message: 'Invalid role' });
+  }
 });
 
 // Get User Profile
@@ -87,6 +219,24 @@ router.get('/me', authMiddleware, (req, res) => {
   if (!user) return res.status(404).json({ message: 'User not found.' });
   
   res.json({ user });
+});
+
+// Update User Profile
+router.put('/me', authMiddleware, async (req, res) => {
+  const { name, theme } = req.body;
+
+  let users = readUsersFromFile();
+  const userIndex = users.findIndex(u => u.email === req.user.email);
+
+  if (userIndex !== -1) {
+    users[userIndex].name = name || users[userIndex].name;
+    users[userIndex].theme = theme || users[userIndex].theme;
+    writeUsersToFile(users);
+
+    res.json({ message: 'Profile updated successfully' });
+  } else {
+    res.status(404).json({ message: 'User not found' });
+  }
 });
 
 // Forgot Password (Send Email with Reset Link)
@@ -139,17 +289,6 @@ router.post('/reset-password', async (req, res) => {
   writeUsersToFile(users);
 
   res.json({ message: 'Password reset successful' });
-});
-
-// Google OAuth Route
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email']
-}));
-
-// Google OAuth Callback Route
-router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
-  const token = jwt.sign({ email: req.user.email, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.json({ message: 'Google login successful', token });
 });
 
 // Function to read users from the file

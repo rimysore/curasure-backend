@@ -26,7 +26,9 @@
   },
   {
     "email": "rithviksit@gmail.com",
-    "password": "$2b$10$PuZW3W6vGabnrp1IptjRAuYXg./V2h5TNisZw43ZyDR98zA2w6E5e",
-    "role": "patient"
+    "password": "$2b$10$OYkhxi0.jBRTuXlSqNIsc.WVvY3d/jbnzSig93HSGFOECExFHrZle",
+    "role": "patient",
+    "theme": "dark",
+    "name": "John Smith"
   }
 ]

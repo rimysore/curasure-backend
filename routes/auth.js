@@ -162,6 +162,11 @@ const authMiddleware = (req, res, next) => {
     return res.status(400).json({ message: 'Invalid token.' });
   }
 };
+// A simple regex to validate email format
+function isValidEmail(email) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  }
 
 // Register Route with Email Validation
 router.post('/register', async (req, res) => {

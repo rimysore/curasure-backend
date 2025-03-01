@@ -1,15 +1,5 @@
 [
   {
-    "email": "rimysore@iu.edu",
-    "password": "$2b$10$pdfy.y6KDsJO2AZibIJcveF/Vax0UY4o2DNOWBhd.iQHGyRJEhsQC",
-    "role": "Doctor"
-  },
-  {
-    "email": "rimysore@iub.edu",
-    "password": "$2b$10$Th08CSnW.mkGXwjaqdJl.eHekdhaX6hRitOKOl9yo7haAGZO9anTy",
-    "role": "insurance"
-  },
-  {
     "email": "rimysore",
     "password": "$2b$10$cEQ00ld/NBSzg1qF.UMejescCKUu06K2xu8EUpke7vSsWg.rDJWnm",
     "role": "insurance"
@@ -30,5 +20,12 @@
     "role": "patient",
     "theme": "dark",
     "name": "John Smith"
+  },
+  {
+    "email": "rimysore@iu.edu",
+    "password": "$2b$10$fiI/U6LKfA9KZDDQlpCNa.ZjHSKFDVf63jmQWrbheeIg6U5B5FrRu",
+    "role": "doctor",
+    "theme": "light",
+    "name": "jony sins"
   }
 ]

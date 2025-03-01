@@ -110,35 +110,43 @@ const verifyDuoResponse = (tx, sig_response) => {
 
 // Google OAuth Route
 router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email']
-}));
-
+    scope: ['profile', 'email']
+  }));
+  
 // Google OAuth Callback Route
 router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
-  // After successful Google login, the user is authenticated, and 'req.user' contains user data
+    if (!req.user || !req.user.token) {
+      return res.status(500).json({ message: 'Google authentication failed' });
+    }
   
-  // Step 1: Send the authenticated user information to Duo for the second factor
-  // Call /duo-auth endpoint to start the Duo authentication flow
-
-  axios.post('http://localhost:5002/auth/duo-auth', { email: req.user.email })
-    .then((response) => {
-      // Duo authentication URL returned from /duo-auth
-      const duoUrl = response.data.duo_url;
-
-      // Step 2: Redirect user to Duo authentication page
-      res.redirect(duoUrl);
-    })
-    .catch((error) => {
-      console.error('Error during Duo authentication:', error);
-      res.status(500).json({ message: 'Error initiating Duo authentication' });
-    });
-});
-
-// Function to validate email format
-const isValidEmail = (email) => {
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  return emailRegex.test(email);
-};
+    // Return token in JSON response
+    res.json({ message: 'Google OAuth successful', token: req.user.token });
+  });
+  
+  // Success route to display token on screen
+  router.get('/success', (req, res) => {
+    const token = req.query.token;
+    if (!token) {
+      return res.status(400).send('<h2>Authentication failed. No token received.</h2>');
+    }
+  
+    res.send(`
+      <html>
+        <head>
+          <title>Google OAuth Success</title>
+        </head>
+        <body>
+          <h2>Google OAuth Successful</h2>
+          <p>Your token:</p>
+          <textarea rows="5" cols="60">${token}</textarea>
+          <br/>
+          <p>Copy and use this token for authentication.</p>
+        </body>
+      </html>
+    `);
+  });
+  
+  module.exports = router;
 
 // Middleware to verify JWT
 const authMiddleware = (req, res, next) => {

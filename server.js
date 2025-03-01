@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const passport = require('passport');
+const session = require('express-session'); 
 const authRoutes = require('./routes/auth');  // Import the router from /routes/auth
 require('./config/passportConfig');  // Import the passport configuration
 
@@ -9,9 +10,17 @@ dotenv.config();
 
 const app = express();
 
+// Session middleware before passport
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',  // Set a secret key for signing the session ID cookie
+    resave: false,  // Don't resave session if it hasn't changed
+    saveUninitialized: false,  // Don't create a session until something is stored
+  }));
+
 // Middleware
 app.use(express.json());
-app.use(passport.initialize());  // Initialize Passport
+app.use(passport.initialize()); 
+app.use(passport.session());  // Initialize Passport
 
 // Routes
 app.use('/api/auth', authRoutes);  // Use the authRoutes for '/api/auth'

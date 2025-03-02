@@ -1,4 +1,4 @@
-Here’s a well-structured `README.md` file for your **CuraSure** project, covering its structure, design, and setup.  
+
 
 ---
 
@@ -22,18 +22,15 @@ CuraSure is a comprehensive **Patient & Health Insurance Management System** tha
 - **Role-based Access Control** (Patients, Doctors, Insurance Providers)  
 - **Patient Management** (Update health records, book appointments)  
 - **Doctor’s Portal** (View assigned patients' medical history)  
-- **Insurance Provider Portal** (Offer insurance plans based on patient data)  
-- **COVID-19 Monitoring** (Track admitted patients, bed availability)  
-- **Secure & Scalable Backend** (Express.js, JSON file storage for now)  
+- **Insurance Provider Portal** (Offer insurance plans based on patient data)   
+- **Secure & Scalable Backend** (Node.js, JSON file storage for now)  
 
 ---
 
 ## **Project Structure**
 ```
 CuraSure/
-│-- backend/
-│   ├── controllers/       # Business logic for handling requests
-│   ├── middleware/        # Authentication and validation middleware
+│-- backend/       # Authentication and validation middleware
 │   ├── routes/            # Express routes for APIs
 │   ├── utils/             # Helper functions
 │   ├── data/              # JSON file storage (for now, replacing DB)
@@ -133,21 +130,7 @@ Backend will run at: **http://localhost:5002**
 ### **Patient**
 | Method | Endpoint | Description |
 |--------|---------|-------------|
-| `GET`  | `/api/patient/profile` | View patient profile |
-| `POST` | `/api/patient/update` | Update health details |
-| `POST` | `/api/patient/book-appointment` | Book an appointment |
-
-### **Doctor**
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| `GET`  | `/api/doctor/patients` | View assigned patients |
-| `POST` | `/api/doctor/update-medical-history` | Update patient history |
-
-### **Insurance Provider**
-| Method | Endpoint | Description |
-|--------|---------|-------------|
-| `GET`  | `/api/insurance/quotes` | View available quotes |
-| `POST` | `/api/insurance/provide-quote` | Offer insurance plans |
+| `GET`  | `/api/patient/me` | View patient profile |
 
 ---
 
@@ -162,8 +145,7 @@ Backend will run at: **http://localhost:5002**
 ## **Future Enhancements**
 - **Database Integration (MongoDB)** for better data management  
 - **Frontend Development (React.js)** for user interface  
-- **Automated AI-based recommendations** for insurance plans  
-- **Docker & Cloud Deployment** for scalability  
+- **Docker** for scalability  
 
 ---
 

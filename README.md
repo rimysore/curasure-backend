@@ -37,8 +37,7 @@ CuraSure/
 │   ├── .env               # Environment variables
 │   ├── server.js          # Main entry point for backend
 │   ├── package.json       # Dependencies & scripts
-│
-│-- frontend/              # (To be developed) React.js frontend
+│             # (To be developed) React.js frontend
 │-- README.md              # Project documentation
 ```
 

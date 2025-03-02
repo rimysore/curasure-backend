@@ -25,29 +25,37 @@ const authMiddleware = (req, res, next) => {
 
 // Register route
 router.post('/register', async (req, res) => {
-  const { email, password, role } = req.body;
+    const { email, password, role, theme = "default" } = req.body;  // Added theme field with default value
   
-  // Read users from file
-  let users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-
-  // Check if user already exists
-  const existingUser = users.find(user => user.email === email);
-  if (existingUser) {
-    return res.status(400).json({ message: 'User already exists' });
-  }
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Create new user
-  const newUser = { email, password: hashedPassword, role, id: Date.now() };  // Use timestamp as unique ID
-  users.push(newUser);
-
-  // Write updated users to file
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-
-  res.status(201).json({ message: 'User registered successfully' });
-});
+    // Read users from file
+    let users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+  
+    // Check if user already exists
+    const existingUser = users.find(user => user.email === email);
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+  
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+  
+    // Create new user
+    const newUser = { 
+      email, 
+      password: hashedPassword, 
+      role, 
+      theme,  // Include theme in user object
+      id: Date.now()  // Use timestamp as unique ID
+    };
+  
+    users.push(newUser);
+  
+    // Write updated users to file
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  
+    res.status(201).json({ message: 'User registered successfully' });
+  });
+  
 
 // Login route
 router.post('/login', async (req, res) => {

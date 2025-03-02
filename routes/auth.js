@@ -13,6 +13,8 @@ const router = express.Router();
 const USERS_FILE = path.join(__dirname, '../users.json');
 const axios = require('axios');
 
+
+
 // Duo Credentials
 const duoIkey = process.env.DUO_INTEGRATION_KEY;
 const duoSkey = process.env.DUO_SECRET_KEY;
@@ -150,7 +152,8 @@ router.get('/google/callback', passport.authenticate('google', { failureRedirect
 
 // Middleware to verify JWT
 const authMiddleware = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
+  //const token = req.header('Authorization')?.replace('Bearer ', '');
+  const token = req.query.token || req.headers['authorization']?.split(' ')[1]; // Check token in query or Authorization header
   if (!token) {
     return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
@@ -178,7 +181,7 @@ router.post('/register', async (req, res) => {
 
   let users = readUsersFromFile();
   if (users.find(user => user.email === email)) {
-    return res.status(400).json({ message: 'User already exists' });
+    return res.status(400).json({ message: 'User already exists, please login' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -218,7 +221,7 @@ router.get('/dashboard', authMiddleware, (req, res) => {
     res.send('<h1>Welcome, Patient</h1><p>Here is your personal dashboard.</p>');
   } else if (role === 'doctor') {
     res.send('<h1>Welcome, Doctor</h1><p>Here is your doctor dashboard.</p>');
-  } else if (role === 'insurance_provider') {
+  } else if (role === 'insurance') {
     res.send('<h1>Welcome, Insurance Provider</h1><p>Here is your insurance provider dashboard.</p>');
   } else {
     res.status(400).json({ message: 'Invalid role' });

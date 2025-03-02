@@ -22,10 +22,28 @@
     "name": "John Smith"
   },
   {
-    "email": "rimysore@iu.edu",
-    "password": "$2b$10$fiI/U6LKfA9KZDDQlpCNa.ZjHSKFDVf63jmQWrbheeIg6U5B5FrRu",
+    "email": "rimysore@gmail.com",
+    "password": "$2b$10$ASz7K50aRGp6a/6V5kEmou.1X0N3nhRSCkMy03gEIC/R1R/zgnQS.",
     "role": "doctor",
+    "theme": "default"
+  },
+  {
+    "email": "rimysore@iu.edu",
+    "password": "$2b$10$aj70SsiGTnRr7.SfTpDNUeO3ihRiPwp6Qfn5vSbZU/zPWcV4.8FGe",
+    "role": "insurance",
     "theme": "light",
-    "name": "jony sins"
+    "name": "usertest"
+  },
+  {
+    "email": "rimysore@emial.edu",
+    "password": "$2b$10$gvWQbkGURfeqOFsuXoir7.DhJfbd2Sr3/MLv6XazFAoG96vncBEue",
+    "role": "insurance",
+    "theme": "default"
+  },
+  {
+    "email": "ri34@emial.edu",
+    "password": "$2b$10$RiNzExb6N/9bJK88BrmuvOQhTBtEPqFhFVrO1LXBsMyESLpKOEUKi",
+    "role": "insurance",
+    "theme": "dark"
   }
 ]

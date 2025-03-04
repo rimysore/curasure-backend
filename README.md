@@ -98,6 +98,7 @@ git checkout dev
 ### **3. Install Dependencies**
 ```bash
 npm install
+npm install mongoose
 ```
 
 ### **4. Configure Environment Variables**

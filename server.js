@@ -10,6 +10,11 @@ dotenv.config();
 
 const app = express();
 
+//cors setup
+const cors = require('cors');
+app.use(cors({ origin: 'http://localhost:5173' }));  // Allow frontend to access backend
+
+
 // Session middleware before passport
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',  // Set a secret key for signing the session ID cookie

@@ -7,6 +7,10 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const passport = require('passport');
 const { OAuth2Client } = require('google-auth-library');
+
+const mongoose = require('mongoose');
+const User = require('../models/UserData');
+
 require('dotenv').config();
 
 const router = express.Router();
@@ -174,21 +178,31 @@ function isValidEmail(email) {
 // Register Route with Email Validation
 router.post('/register', async (req, res) => {
   const { email, password, role, theme } = req.body;
-
   if (!isValidEmail(email)) {
     return res.status(400).json({ message: 'Invalid email format' });
   }
-
-  let users = readUsersFromFile();
-  if (users.find(user => user.email === email)) {
-    return res.status(400).json({ message: 'User already exists, please login' });
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ email, password: hashedPassword, role, theme: theme || 'default' }); // Added theme field
-  writeUsersToFile(users);
+  try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists, please login' });
+    }
 
-  res.status(201).json({ message: 'User registered successfully' });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ email, password: hashedPassword, role, theme: theme || 'default' });
+    await newUser.save();
+
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message || 'Unknown error occurred'
+    });
+  }
 });
 
 // Login Route
@@ -199,15 +213,19 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Please provide email, password, and role' });
   }
 
-  let users = readUsersFromFile();
-  const user = users.find(user => user.email === email && user.role === role);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(400).json({ message: 'Invalid email, password, or role' });
-  }
+  try {
+    const user = await User.findOne({ email, role });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(400).json({ message: 'Invalid email, password, or role' });
+    }
 
-  const token = jwt.sign({ email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.json({ message: 'Login successful', token });
+    const token = jwt.sign({ email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ message: 'Login successful', token });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
 });
+
 
 // Home Route (Before Login & After Logout)
 router.get('/', (req, res) => {
@@ -227,16 +245,15 @@ router.get('/dashboard', authMiddleware, (req, res) => {
     res.status(400).json({ message: 'Invalid role' });
   }
 });
-
+// Need to update the DB for this section
 // Get User Profile
 router.get('/me', authMiddleware, (req, res) => {
   let users = readUsersFromFile();
   const user = users.find(u => u.email === req.user.email);
   if (!user) return res.status(404).json({ message: 'User not found.' });
-  
+
   res.json({ user });
 });
-
 // Update User Profile
 router.put('/me', authMiddleware, async (req, res) => {
   const { name, theme } = req.body;
@@ -256,56 +273,54 @@ router.put('/me', authMiddleware, async (req, res) => {
 });
 
 // Forgot Password (Send Email with Reset Link)
-router.post('/forgot-password', (req, res) => {
+router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
+  if (!email) return res.status(400).json({ message: 'Email is required' });
 
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ message: 'Invalid email format' });
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: 'User not found' });
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetToken = resetToken;
+    user.resetTokenExpires = Date.now() + 3600000;
+    await user.save();
+
+    const resetUrl = `${process.env.BASE_URL}/api/auth/reset-password?token=${resetToken}`;
+    transporter.sendMail({
+      from: `Support <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset Request',
+      html: `<p>You requested a password reset.</p><p>Click <a href="${resetUrl}">here</a> to reset your password.</p><p>This link expires in 1 hour.</p>`
+    }, (error) => {
+      if (error) return res.status(500).json({ message: 'Failed to send reset email' });
+      res.json({ message: 'Password reset email sent successfully' });
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
   }
-
-  let users = readUsersFromFile();
-  const user = users.find(user => user.email === email);
-  if (!user) return res.status(400).json({ message: 'User not found' });
-
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  user.resetToken = resetToken;
-  user.resetTokenExpires = Date.now() + 3600000; // Expires in 1 hour
-  writeUsersToFile(users);
-
-  const resetUrl = `${process.env.BASE_URL}/api/auth/reset-password?token=${resetToken}`;
-
-  // Send Email with Gmail SMTP credentials
-  transporter.sendMail({
-    from: `"Support" <${process.env.MAIL_USER}>`,  // Use Gmail user as the sender
-    to: email,
-    subject: 'Password Reset Request',
-    html: `<p>You requested a password reset.</p>
-           <p>Click <a href="${resetUrl}">here</a> to reset your password.</p>
-           <p>This link expires in 1 hour.</p>`
-  }, (error, info) => {
-    if (error) {
-      console.error('Email sending failed:', error);
-      return res.status(500).json({ message: 'Failed to send reset email' });
-    }
-    res.json({ message: 'Password reset email sent successfully' });
-  });
 });
 
 // Reset Password
+
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
 
-  let users = readUsersFromFile();
-  const user = users.find(u => u.resetToken === token && u.resetTokenExpires > Date.now());
-  if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+  try {
+    const user = await User.findOne({ resetToken: token, resetTokenExpires: { $gt: Date.now() } });
+    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
 
-  user.password = await bcrypt.hash(newPassword, 10);
-  delete user.resetToken;
-  delete user.resetTokenExpires;
-  writeUsersToFile(users);
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetToken = undefined;
+    user.resetTokenExpires = undefined;
+    await user.save();
 
-  res.json({ message: 'Password reset successful' });
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
 });
+
 
 // Function to read users from the file
 const readUsersFromFile = () => {
@@ -326,5 +341,21 @@ const writeUsersToFile = (users) => {
     console.error('Error writing users file:', error);
   }
 };
+
+// Search and Filter API
+router.get('/doctors', async (req, res) => {
+    try {
+      const { name, specialization, covidCare } = req.query;
+      let query = {};
+      if (name) query.name = { $regex: name, $options: 'i' };
+      if (specialization) query.specialization = { $regex: specialization, $options: 'i' };
+      if (covidCare) query.covidCare = covidCare === 'true';
+      
+      const doctors = await Doctor.find(query);
+      res.json(doctors);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error });
+    }
+  });
 
 module.exports = router;

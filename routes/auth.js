@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const passport = require('passport');
 const { OAuth2Client } = require('google-auth-library');
+const siteKey = process.env.SITE_KEY;
 
 const mongoose = require('mongoose');
 const User = require('../models/UserData');
@@ -207,22 +208,51 @@ router.post('/register', async (req, res) => {
 
 // Login Route
 router.post('/login', async (req, res) => {
-  const { email, password, role } = req.body;
-
-  if (!email || !password || !role) {
-    return res.status(400).json({ message: 'Please provide email, password, and role' });
-  }
-
   try {
-    const user = await User.findOne({ email, role });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(400).json({ message: 'Invalid email, password, or role' });
+    const { email, password, role, captchaToken } = req.body;
+
+    if (!email || !password || !role || !captchaToken) {
+      return res.status(400).json({ message: 'Please provide email, password, role, and CAPTCHA token' });
     }
 
-    const token = jwt.sign({ email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Verify CAPTCHA
+    // const captchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
+    //   params: {
+    //     secret: process.env.SECRET_KEY, // Your reCAPTCHA secret key
+    //     response: captchaToken
+    //   }
+    // });
+    const verifyCaptcha = async (captchaToken) => {
+      return true; // Accept the token for testing
+
+    };
+    if (verifyCaptcha == true) {//!captchaResponse.data.success
+      return res.status(400).json({ message: 'CAPTCHA verification failed' });
+    }
+
+    // Find user in MongoDB
+    const user = await User.findOne({ email: email, role: role });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email, password, or role!!!' });
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid email, password, or role!' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+        { email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+    );
+
     res.json({ message: 'Login successful', token });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

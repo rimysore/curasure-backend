@@ -99,6 +99,7 @@ git checkout dev
 ```bash
 npm install
 npm install mongoose
+npm install axios
 ```
 
 ### **4. Configure Environment Variables**

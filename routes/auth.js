@@ -206,6 +206,10 @@ router.post('/register', async (req, res) => {
   }
 });
 
+//pass Stie key to the captcha function on front end
+router.get('/recaptcha-key', (req, res) => {
+  res.json({ siteKey: process.env.RECAPTCHA_SITE_KEY });
+});
 // Login Route
 router.post('/login', async (req, res) => {
   try {
@@ -216,30 +220,28 @@ router.post('/login', async (req, res) => {
     }
 
     // Verify CAPTCHA
-    // const captchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
-    //   params: {
-    //     secret: process.env.SECRET_KEY, // Your reCAPTCHA secret key
-    //     response: captchaToken
-    //   }
-    // });
-    const verifyCaptcha = async (captchaToken) => {
-      return true; // Accept the token for testing
+    const captchaResponse = await axios.post('https://www.google.com/recaptcha/api/siteverify', null, {
+      params: {
+        secret: process.env.RECAPTCHA_SECRET_KEY,
+        response: captchaToken
+      }
+    });
 
-    };
-    if (verifyCaptcha == true) {//!captchaResponse.data.success
+    // Check if verification was successful
+    if (!captchaResponse.data.success) {
       return res.status(400).json({ message: 'CAPTCHA verification failed' });
     }
 
     // Find user in MongoDB
     const user = await User.findOne({ email: email, role: role });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email, password, or role!!!' });
+      return res.status(400).json({ message: 'Invalid email, password, or role' });
     }
 
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email, password, or role!' });
+      return res.status(400).json({ message: 'Invalid email, password, or role' });
     }
 
     // Generate JWT token
@@ -249,7 +251,7 @@ router.post('/login', async (req, res) => {
         { expiresIn: '1h' }
     );
 
-    res.json({ message: 'Login successful', token });
+    res.json({ message: 'Login successful', token, user: { email: user.email, role: user.role } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });

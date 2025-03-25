@@ -255,28 +255,52 @@ router.get('/dashboard', authMiddleware, (req, res) => {
 });
 // Need to update the DB for this section
 // Get User Profile
-router.get('/me', authMiddleware, (req, res) => {
-  let users = readUsersFromFile();
-  const user = users.find(u => u.email === req.user.email);
-  if (!user) return res.status(404).json({ message: 'User not found.' });
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email }).select('-password');
 
-  res.json({ user });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 });
 // Update User Profile
 router.put('/me', authMiddleware, async (req, res) => {
   const { name, theme } = req.body;
 
-  let users = readUsersFromFile();
-  const userIndex = users.findIndex(u => u.email === req.user.email);
+  try {
+    // Validate input
+    if (!name && !theme) {
+      return res.status(400).json({ message: 'Please provide name or theme to update' });
+    }
 
-  if (userIndex !== -1) {
-    users[userIndex].name = name || users[userIndex].name;
-    users[userIndex].theme = theme || users[userIndex].theme;
-    writeUsersToFile(users);
+    // Prepare update object
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (theme) updateData.theme = theme;
 
-    res.json({ message: 'Profile updated successfully' });
-  } else {
-    res.status(404).json({ message: 'User not found' });
+    // Find and update the user, creating the document if it doesn't exist
+    const user = await User.findOneAndUpdate(
+        { email: req.user.email },
+        { $set: updateData },
+        {
+          new: true,           // Return the modified document
+          upsert: true,        // Create the document if it doesn't exist
+          setDefaultsOnInsert: true  // Apply default values if creating
+        }
+    );
+
+    res.json({
+      message: 'Profile updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

@@ -7,7 +7,6 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const passport = require('passport');
 const { OAuth2Client } = require('google-auth-library');
-const siteKey = process.env.SITE_KEY;
 
 const mongoose = require('mongoose');
 const User = require('../models/UserData');
@@ -176,14 +175,13 @@ function isValidEmail(email) {
     return emailRegex.test(email);
   }
 
-// Register Route with Email Validation
 router.post('/register', async (req, res) => {
-  const { email, password, role, theme } = req.body;
+  const { email, password, role, theme, name } = req.body;  // Added name to destructure
   if (!isValidEmail(email)) {
     return res.status(400).json({ message: 'Invalid email format' });
   }
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
+  if (!email || !password || !name) {  // Ensure name is required
+    return res.status(400).json({ message: 'Email, password, and name are required' });
   }
 
   try {
@@ -193,8 +191,16 @@ router.post('/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword, role, theme: theme || 'default' });
+    const newUser = new User({ email, password: hashedPassword, role, theme: theme || 'default', name });
     await newUser.save();
+
+    // Send email notification after registration
+    transporter.sendMail({
+      from: `Support <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: 'Registration Successful',
+      html: `<p>Welcome, ${name}!</p><p>Your account has been successfully created.</p>`
+    });
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
@@ -206,55 +212,25 @@ router.post('/register', async (req, res) => {
   }
 });
 
-//pass Stie key to the captcha function on front end
-router.get('/recaptcha-key', (req, res) => {
-  res.json({ siteKey: process.env.RECAPTCHA_SITE_KEY });
-});
+
 // Login Route
 router.post('/login', async (req, res) => {
+  const { email, password, role } = req.body;
+
+  if (!email || !password || !role) {
+    return res.status(400).json({ message: 'Please provide email, password, and role' });
+  }
+
   try {
-    const { email, password, role, captchaToken } = req.body;
-
-    if (!email || !password || !role || !captchaToken) {
-      return res.status(400).json({ message: 'Please provide email, password, role, and CAPTCHA token' });
-    }
-
-    // Verify CAPTCHA
-    const captchaResponse = await axios.post('https://www.google.com/recaptcha/api/siteverify', null, {
-      params: {
-        secret: process.env.RECAPTCHA_SECRET_KEY,
-        response: captchaToken
-      }
-    });
-
-    // Check if verification was successful
-    if (!captchaResponse.data.success) {
-      return res.status(400).json({ message: 'CAPTCHA verification failed' });
-    }
-
-    // Find user in MongoDB
-    const user = await User.findOne({ email: email, role: role });
-    if (!user) {
+    const user = await User.findOne({ email, role });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ message: 'Invalid email, password, or role' });
     }
 
-    // Compare passwords
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email, password, or role' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-        { email: user.email, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-    );
-
-    res.json({ message: 'Login successful', token, user: { email: user.email, role: user.role } });
+    const token = jwt.sign({ email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ message: 'Login successful', token });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error });
   }
 });
 

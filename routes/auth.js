@@ -52,6 +52,14 @@ const generateDuoTx = (username) => {
     throw new Error('Failed to generate Duo transaction');
   });
 };
+// Return reCAPTCHA site key to frontend
+router.get('/recaptcha-key', (req, res) => {
+  const siteKey = process.env.RECAPTCHA_SITE_KEY;
+  if (!siteKey) {
+    return res.status(500).json({ message: 'reCAPTCHA site key not configured' });
+  }
+  res.json({ siteKey });
+});
 
 // Duo Authentication Route
 router.post('/duo-auth', (req, res) => {

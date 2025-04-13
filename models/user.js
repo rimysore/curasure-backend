@@ -59,7 +59,11 @@ router.post('/register', async (req, res) => {
 
 // Login route
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
+
+  if (!email || !password || !role) {
+    return res.status(400).json({ message: 'Please provide email, password, and role' });
+  }
 
   // Read users from file
   let users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
@@ -81,8 +85,20 @@ router.post('/login', async (req, res) => {
     expiresIn: '1h',
   });
 
-  res.json({ message: 'Login successful', token });
+  // ✅ IMPORTANT: Send response back to frontend
+  res.json({
+    message: 'Login successful',
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      theme: user.theme,
+      name: user.name || "", // default empty string if name missing
+    }
+  });
 });
+
 
 // Protected route to get user info using the token
 router.get('/me', authMiddleware, (req, res) => {

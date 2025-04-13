@@ -220,8 +220,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-
-// Login Route
 router.post('/login', async (req, res) => {
   const { email, password, role } = req.body;
 
@@ -235,8 +233,20 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid email, password, or role' });
     }
 
-    const token = jwt.sign({ email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ message: 'Login successful', token });
+    const token = jwt.sign({_id:user._id, email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    // ✅ Updated response to send user data as well
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,         // ✅ sending MongoDB _id
+        email: user.email,
+        role: user.role,
+        theme: user.theme,
+        name: user.name || "", // ✅ if you have name field
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }

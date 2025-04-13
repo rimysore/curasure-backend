@@ -5,7 +5,6 @@ const nodemailer = require('nodemailer');
 const DoctorFeedback = require('../models/DoctorFeedback');  // Import the feedback model
 const router = express.Router();
 
-
 // Route to create a doctor profile
 router.post('/doctor', async (req, res) => {
   const { 
@@ -19,12 +18,7 @@ router.post('/doctor', async (req, res) => {
     covidCare
   } = req.body;
 
-  // Check if required fields are missing
-  if (!name || !specialization || !hospital || !experience) {
-    return res.status(400).json({
-      message: 'Name, specialization, hospital, and experience are required'
-    });
-  }
+
 
   try {
     // Create a new doctor profile
@@ -46,22 +40,72 @@ router.post('/doctor', async (req, res) => {
   }
 });
 
+
+
+
+// 📌 Create this new PUT route to update doctor profile
+router.put('/doctor/edit/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    name,
+    specialization,
+    experience,
+    available,
+    covidCare,
+    hospital,
+    rating,
+    profilePicture
+  } = req.body;
+
+  try {
+    const updatedDoctor = await Doctor.findByIdAndUpdate(
+      id.trim(),   // trim to be safe
+      {
+        $set: {
+          name,
+          specialization,
+          experience,
+          available,
+          covidCare,
+          hospital,
+          rating,
+          profilePicture,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedDoctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    res.status(200).json({ message: 'Doctor profile updated successfully', doctor: updatedDoctor });
+  } catch (error) {
+    console.error('Error updating doctor profile:', error);
+    res.status(500).json({ message: 'Error updating doctor profile', error });
+  }
+});
+
+module.exports = router;
+
+
 // Route to get doctor profile along with feedback by doctorId
 router.get('/doctor/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Fetch the doctor profile by ID
-    const doctor = await Doctor.findById(id);
+    const doctorId = id.trim(); // 🛠️ trim id if needed
+
+    // 🛠️ Populate hospital here
+    const doctor = await Doctor.findById(doctorId).populate('hospital');
 
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    // Fetch feedback associated with the doctor
-    const feedbacks = await DoctorFeedback.find({ doctorId: id });
+    // Fetch feedbacks too
+    const feedbacks = await DoctorFeedback.find({ doctorId: doctorId });
 
-    // Combine the doctor profile and feedbacks
     const doctorProfileWithFeedback = {
       doctor,
       feedbacks
@@ -73,7 +117,6 @@ router.get('/doctor/:id', async (req, res) => {
     res.status(500).json({ message: 'Error fetching doctor profile with feedback', error });
   }
 });
-
 
 
 /**

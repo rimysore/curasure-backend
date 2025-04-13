@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 
 const doctorSchema = new mongoose.Schema({
+
   name: { 
     type: String, 
     required: true 
@@ -10,10 +11,10 @@ const doctorSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  hospital: { 
-    type: String, 
-    required: true 
-  }, // Hospital where the doctor works
+  hospital: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Hospital'
+  },
   rating: { 
     type: Number, 
     default: 0 
@@ -23,7 +24,8 @@ const doctorSchema = new mongoose.Schema({
     required: true 
   }, // Years of experience
   profilePicture: { 
-    type: String 
+    type: String,
+    default:''
   }, // URL to profile picture
   available: { type: Boolean, default: true }, 
   covidCare: { type: Boolean, default: false },

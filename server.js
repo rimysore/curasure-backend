@@ -11,6 +11,8 @@ const patientRoutes = require('./routes/patientRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const hospitalBedRoutes = require('./routes/hospitalBedRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');  // Add this line
+
 require('./config/passportConfig');  // Import the passport configuration
 
 dotenv.config();
@@ -19,7 +21,7 @@ const app = express();
 
 // CORS setup
 const cors = require('cors');
-app.use(cors({ origin: 'http://localhost:5173' }));  // Allow frontend to access backend
+app.use(cors({ origin: 'http://localhost:5173', credentials:true }));  // Allow frontend to access backend
 
 // Session middleware before passport
 app.use(session({
@@ -42,6 +44,8 @@ app.use('/api', patientRoutes);
 app.use('/api', feedbackRoutes);
 app.use('/api', hospitalBedRoutes);
 app.use('/api', hospitalRoutes);
+app.use('/api', appointmentRoutes);  // Add this line under others
+
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI, {

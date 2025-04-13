@@ -2,6 +2,27 @@ const express = require('express');
 const DoctorFeedback = require('../models/DoctorFeedback');
 const Doctor = require('../models/Doctor');
 const router = express.Router();
+const mongoose = require('mongoose');
+
+
+// 📌 GET all feedbacks for a specific doctor
+router.get('/feedback/:doctorId', async (req, res) => {
+  try {
+    console.log('Doctor feedbacks:', feedbacks);
+console.log('Calculated avg rating:', avgRating);
+    const { doctorId } = req.params;
+    const feedbacks = await DoctorFeedback.find({ doctorId: new mongoose.Types.ObjectId(doctorId) })
+      .populate('patientId', 'name');  // populate patient name
+    res.status(200).json({ feedbacks });
+  } catch (error) {
+    console.error('Error fetching feedbacks:', error);
+    res.status(500).json({ message: 'Error fetching feedbacks', error });
+  }
+});
+
+router.get('/feedback/test', (req, res) => {
+  res.send('Feedback route is working!');
+});
 
 // Route to submit doctor feedback
 router.post('/feedback', async (req, res) => {
@@ -26,7 +47,7 @@ router.post('/feedback', async (req, res) => {
     if (doctor) {
       const totalFeedbacks = await DoctorFeedback.countDocuments({ doctorId });
       const totalRatingResult = await DoctorFeedback.aggregate([
-        { $match: { doctorId } },
+        { $match: { doctorId: new mongoose.Types.ObjectId(doctorId) } },
         { $group: { _id: null, totalRating: { $sum: '$rating' } } }
       ]);
 

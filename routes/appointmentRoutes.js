@@ -57,6 +57,23 @@ router.get('/appointments/doctor/:doctorId', async (req, res) => {
   }
 });
 
+// 📌 Patient's Appointments
+router.get('/appointments/patient/:patientId', async (req, res) => {
+  const { patientId } = req.params;
+
+  try {
+    const appointments = await Appointment.find({ patientId: patientId })
+      .populate('doctorId')
+      .sort({ date: 1, time: 1 });  // sort by date & time ascending
+
+    res.status(200).json({ appointments });
+  } catch (error) {
+    console.error('Error fetching patient appointments:', error);
+    res.status(500).json({ message: 'Server error', error });
+  }
+});
+
+
 // 📌 Doctor's full appointments list (date + time + patient info)
 router.get('/appointments/list/:doctorId', async (req, res) => {
   const { doctorId } = req.params;

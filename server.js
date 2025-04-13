@@ -13,6 +13,8 @@ const hospitalBedRoutes = require('./routes/hospitalBedRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');  // Add this line
 
+
+
 require('./config/passportConfig');  // Import the passport configuration
 
 dotenv.config();
@@ -41,10 +43,12 @@ app.use('/api/auth', authRoutes);  // Use the authRoutes for '/api/auth'
 app.use('/api', doctorRoutes);  // Use the doctorRoutes for '/api/doctor'
 app.use('/api', covidRoutes);  // Use the covidRoutes for '/api/covid'
 app.use('/api', patientRoutes);
+console.log("Mounting feedback routes...");
 app.use('/api', feedbackRoutes);
 app.use('/api', hospitalBedRoutes);
 app.use('/api', hospitalRoutes);
 app.use('/api', appointmentRoutes);  // Add this line under others
+
 
 
 // Database connection

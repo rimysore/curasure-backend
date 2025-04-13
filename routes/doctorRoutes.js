@@ -5,6 +5,41 @@ const nodemailer = require('nodemailer');
 const DoctorFeedback = require('../models/DoctorFeedback');  // Import the feedback model
 const router = express.Router();
 
+/**
+ * 📌 Get all doctors with fresh updated ratings
+ */
+router.get('/doctors', async (req, res) => {
+  try {
+    let doctors = await Doctor.find().populate('hospital');  // Also populate hospital if needed
+
+    // For each doctor, dynamically calculate rating
+    const doctorsWithRatings = await Promise.all(
+      doctors.map(async (doc) => {
+        const totalFeedbacks = await DoctorFeedback.countDocuments({ doctorId: doc._id });
+        const totalRatingResult = await DoctorFeedback.aggregate([
+          { $match: { doctorId: doc._id } },
+          { $group: { _id: null, totalRating: { $sum: '$rating' } } }
+        ]);
+
+        let avgRating = 0;
+        if (totalFeedbacks > 0 && totalRatingResult.length > 0) {
+          avgRating = totalRatingResult[0].totalRating / totalFeedbacks;
+        }
+
+        return {
+          ...doc.toObject(),
+          rating: avgRating.toFixed(1),  // ⭐ Here the final rating
+        };
+      })
+    );
+
+    res.status(200).json({ doctors: doctorsWithRatings });
+  } catch (error) {
+    console.error('Error fetching doctors:', error);
+    res.status(500).json({ message: 'Error fetching doctors', error });
+  }
+});
+
 // Route to create a doctor profile
 router.post('/doctor', async (req, res) => {
   const { 

@@ -6,21 +6,21 @@ const Insurance = require('../models/Insurance');
 const CovidQuestionnaire = require('../models/CovidQuestionnaire');  // ✅ Import correctly
 const router = express.Router();
 
-// 📌 Route to create a new patient (basic registration)
+// routes/patientRoutes.js
 router.post('/patient', async (req, res) => {
   const { name, age, gender, contact, address } = req.body;
 
-  if (!name || !age || !gender || !contact || !address) {
-    return res.status(400).json({ message: 'All fields are required' });
+  if (!name) {
+    return res.status(400).json({ message: 'Name is required' });
   }
 
   try {
     const patient = new Patient({
       name,
-      age,
-      gender,
-      contact,
-      address
+    age: 0,                     
+    gender: "Not Specified",      
+    contact: "Not Provided",      
+    address: "Not Provided",
     });
 
     await patient.save();
@@ -30,6 +30,19 @@ router.post('/patient', async (req, res) => {
     res.status(500).json({ message: 'Error creating patient', error });
   }
 });
+
+// routes/patientRoutes.js
+router.get('/patients/search', async (req, res) => {
+  const { name } = req.query;
+  try {
+    const patients = await Patient.find({ name: { $regex: name, $options: "i" } });
+    res.json(patients);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching patients', error });
+  }
+});
+
+
 
 // 📌 Route to get full details for a patient (Basic Info + COVID Questionnaire + Medical + Insurance)
 router.get('/patient/:patientId/full-details', async (req, res) => {
@@ -67,6 +80,19 @@ router.get('/patient/:patientId/full-details', async (req, res) => {
     res.status(500).json({ message: 'Server error', error });
   }
 });
+
+// routes/patientRoutes.js
+router.get("/:patientId/assigned-doctors", async (req, res) => {
+  try {
+    const appointments = await Appointment.find({ patientId: req.params.patientId }).populate('doctorId');
+    const uniqueDoctors = [...new Map(appointments.map(item => [item.doctorId._id.toString(), item.doctorId])).values()];
+    res.json({ doctors: uniqueDoctors });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching assigned doctors" });
+  }
+});
+
 
 
 

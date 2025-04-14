@@ -19,8 +19,8 @@ router.post('/patient', async (req, res) => {
       name,
     age: 0,                     
     gender: "Not Specified",      
-    contact: "Not Provided",      
-    address: "Not Provided",
+    contact: "No Contact ",      
+    address: "No Address",
     });
 
     await patient.save();
@@ -42,6 +42,69 @@ router.get('/patients/search', async (req, res) => {
   }
 });
 
+//edit routes
+// routes/patientRoutes.js
+
+router.put('/patient/:patientId/update', async (req, res) => {
+  const { patientId } = req.params;
+  const {
+    name,
+    contact,
+    address,
+    age,
+    gender,
+    testedPositive,
+    testDate,
+    symptoms,
+    medicalConditions,
+    insuranceCompany,
+    insuranceStatus
+  } = req.body;
+
+  try {
+    const patient = await Patient.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    patient.name = name;
+    patient.contact = contact;
+    patient.address = address;
+    patient.age = age;
+    patient.gender = gender;
+
+    await patient.save();
+
+    const medicalHistory = await MedicalHistory.findOneAndUpdate(
+      { patientId },
+      { conditions: medicalConditions },
+      { new: true, upsert: true }
+    );
+
+    const insurance = await Insurance.findOneAndUpdate(
+      { patientId },
+      { companyName: insuranceCompany, coverageStatus: insuranceStatus },
+      { new: true, upsert: true }
+    );
+
+    const covidData = await CovidQuestionnaire.findOneAndUpdate(
+      { patientId },
+      {
+        fever: symptoms.includes('Fever'),
+        cough: symptoms.includes('Cough'),
+        breathingDifficulty: symptoms.includes('Breathing Difficulty'),
+        needCovidTest: testedPositive,
+        createdAt: testDate || Date.now()
+      },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({ message: 'Patient updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating patient profile:', error);
+    res.status(500).json({ message: 'Server error', error });
+  }
+});
 
 
 // 📌 Route to get full details for a patient (Basic Info + COVID Questionnaire + Medical + Insurance)

@@ -73,8 +73,7 @@ router.put('/patient/:patientId/update', async (req, res) => {
     patient.contact = contact;
     patient.address = address;
     patient.age = age;
-    patient.gender = gender;
-    patient.profilePicture = profilePicture || patient.profilePicture;
+    patient.profilePicture = profilePicture;
 
     await patient.save();
 

@@ -8,7 +8,7 @@ const router = express.Router();
 
 // routes/patientRoutes.js
 router.post('/patient', async (req, res) => {
-  const { name, age, gender, contact, address } = req.body;
+  const { name, age, gender, contact, address , profilePicture} = req.body;
 
   if (!name) {
     return res.status(400).json({ message: 'Name is required' });
@@ -21,6 +21,7 @@ router.post('/patient', async (req, res) => {
     gender: "Not Specified",      
     contact: "No Contact ",      
     address: "No Address",
+    profilePicture: profilePicture || "",
     });
 
     await patient.save();
@@ -58,7 +59,8 @@ router.put('/patient/:patientId/update', async (req, res) => {
     symptoms,
     medicalConditions,
     insuranceCompany,
-    insuranceStatus
+    insuranceStatus,
+    profilePicture   // 👈 ADD this
   } = req.body;
 
   try {
@@ -66,11 +68,13 @@ router.put('/patient/:patientId/update', async (req, res) => {
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
+
     patient.name = name;
     patient.contact = contact;
     patient.address = address;
     patient.age = age;
     patient.gender = gender;
+    patient.profilePicture = profilePicture || patient.profilePicture;
 
     await patient.save();
 
@@ -86,17 +90,19 @@ router.put('/patient/:patientId/update', async (req, res) => {
       { new: true, upsert: true }
     );
 
-    const covidData = await CovidQuestionnaire.findOneAndUpdate(
-      { patientId },
-      {
-        fever: symptoms.includes('Fever'),
-        cough: symptoms.includes('Cough'),
-        breathingDifficulty: symptoms.includes('Breathing Difficulty'),
-        needCovidTest: testedPositive,
-        createdAt: testDate || Date.now()
-      },
-      { new: true, upsert: true }
-    );
+    if (symptoms || testedPositive !== undefined) {
+      const covidData = await CovidQuestionnaire.findOneAndUpdate(
+        { patientId },
+        {
+          fever: symptoms?.includes('Fever') || false,
+          cough: symptoms?.includes('Cough') || false,
+          breathingDifficulty: symptoms?.includes('Breathing Difficulty') || false,
+          needCovidTest: testedPositive || false,
+          createdAt: testDate || Date.now()
+        },
+        { new: true, upsert: true }
+      );
+    }
 
     res.status(200).json({ message: 'Patient updated successfully' });
 
@@ -105,6 +111,7 @@ router.put('/patient/:patientId/update', async (req, res) => {
     res.status(500).json({ message: 'Server error', error });
   }
 });
+
 
 
 // 📌 Route to get full details for a patient (Basic Info + COVID Questionnaire + Medical + Insurance)

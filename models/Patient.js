@@ -7,6 +7,7 @@ const patientSchema = new mongoose.Schema({
   gender: { type: String, required: true , default: "Not Specified" },
   contact: { type: String, required: true , default: "Not Provided" },
   address: { type: String, required: true , default: "Not Provided" },
+  profilePicture: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now }
 });
 

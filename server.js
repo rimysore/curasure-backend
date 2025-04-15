@@ -3,55 +3,70 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const passport = require('passport');
-const session = require('express-session'); 
-const authRoutes = require('./routes/auth');  // Import the router from /routes/auth
-const doctorRoutes = require('./routes/DoctorRoutes');  // Import the doctorRoutes for /api/doctor
-const covidRoutes = require('./routes/covidRoutes');  // Import the covidRoutes for /api/covid
-const patientRoutes = require('./routes/patientRoutes'); 
+const session = require('express-session');
+const cors = require('cors');
+
+// Import routers
+const authRoutes = require('./routes/auth');
+const doctorRoutes = require('./routes/DoctorRoutes');
+const covidRoutes = require('./routes/covidRoutes');
+const patientRoutes = require('./routes/patientRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const hospitalBedRoutes = require('./routes/hospitalBedRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
-const appointmentRoutes = require('./routes/appointmentRoutes');  // Add this line
+const appointmentRoutes = require('./routes/appointmentRoutes');
+const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
 
+// 👉 NEW Routes we made just now
+const insurancePackageRoutes = require('./routes/insurancePackageRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const covidArticleRoutes = require('./routes/covidArticleRoutes');
+const statisticsRoutes = require('./routes/statisticsRoutes');
 
+// Import Passport config
+require('./config/passportConfig');
 
-require('./config/passportConfig');  // Import the passport configuration
-
+// Initialize app
 dotenv.config();
-
 const app = express();
 
 // CORS setup
-const cors = require('cors');
-app.use(cors({ origin: 'http://localhost:5173', credentials:true }));  // Allow frontend to access backend
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
-// Session middleware before passport
+// Body Parser
+app.use(express.json());
+app.use(bodyParser.json());
+
+// Session setup (important before passport)
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',  // Set a secret key for signing the session ID cookie
-  resave: false,  // Don't resave session if it hasn't changed
-  saveUninitialized: false,  // Don't create a session until something is stored
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
 }));
 
-// Middleware
-app.use(express.json());  // Parse incoming JSON requests
-app.use(passport.initialize()); 
-app.use(passport.session());  // Initialize Passport
-app.use(bodyParser.json()); 
+// Passport setup
+app.use(passport.initialize());
+app.use(passport.session());
 
-// Routes
-app.use('/api/auth', authRoutes);  // Use the authRoutes for '/api/auth'
-app.use('/api', doctorRoutes);  // Use the doctorRoutes for '/api/doctor'
-app.use('/api', covidRoutes);  // Use the covidRoutes for '/api/covid'
-app.use('/api', patientRoutes);
+// Mount routes
+app.use('/api/auth', authRoutes);                      // Auth Routes
+app.use('/api', doctorRoutes);                          // Doctor Routes
+app.use('/api', covidRoutes);                           // Covid Routes
+app.use('/api', patientRoutes);                         // Patient Routes
 console.log("Mounting feedback routes...");
-app.use('/api', feedbackRoutes);
-app.use('/api', hospitalBedRoutes);
-app.use('/api', hospitalRoutes);
-app.use('/api', appointmentRoutes);  // Add this line under others
+app.use('/api', feedbackRoutes);                        // Feedback Routes
+app.use('/api', hospitalBedRoutes);                     // Hospital Bed Routes
+app.use('/api', hospitalRoutes);                        // Hospital Routes
+app.use('/api', appointmentRoutes);                     // Appointment Routes
+app.use('/api/insurance-provider', insuranceProviderRoutes); // Insurance Provider Routes
 
+// 👉 NEW Mappings
+app.use('/api', insurancePackageRoutes);                // Insurance Package Routes
+app.use('/api', subscriptionRoutes);                    // Subscription Routes
+app.use('/api/covid-articles', covidArticleRoutes);                   // COVID-19 Article Routes
+app.use('/api', statisticsRoutes);                      // Statistics Routes
 
-
-// Database connection
+// MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -66,4 +81,3 @@ const PORT = process.env.PORT || 5002;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-

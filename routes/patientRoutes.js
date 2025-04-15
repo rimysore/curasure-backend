@@ -43,6 +43,15 @@ router.get('/patients/search', async (req, res) => {
   }
 });
 
+router.get('/patient/:id', async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id).select('name');
+    res.json({ patient });
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching patient', error: err });
+  }
+});
+
 //edit routes
 // routes/patientRoutes.js
 

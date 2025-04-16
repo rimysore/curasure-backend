@@ -62,19 +62,21 @@ router.get('/users/:userId/:role', async (req, res) => {
       return res.json(patients);
       }else if (role === 'insurance') {
         // ✅ Find patients who are subscribed to this insurance provider
-        const subscriptions = await Subscription.find({
-          providerId: new mongoose.Types.ObjectId(userId),
-        });
-  
-        const patientIds = subscriptions.map((s) => s.patientId?.toString()).filter(Boolean);
-        const uniquePatientIds = [...new Set(patientIds)];
-  
-        const patients = await User.find({
-          _id: { $in: uniquePatientIds },
-          role: 'patient',
-        }).select('_id name role');
-  
-        return res.json(patients);
+        const subscriptions = await Subscription.find({ providerId: new mongoose.Types.ObjectId(userId) });
+
+  const patientIds = subscriptions.map((s) => s.patientId?.toString()).filter(Boolean);
+  const uniquePatientIds = [...new Set(patientIds)];
+
+  const patients = await Patient.find({ _id: { $in: uniquePatientIds } }).select('_id name profilePicture');
+
+  return res.json(
+    patients.map((p) => ({
+      _id: p._id,
+      name: p.name,
+      profilePicture: p.profilePicture,
+      type: "patient"
+    }))
+  );
       }
   
       // If role is neither patient nor doctor

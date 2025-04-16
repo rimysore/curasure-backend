@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const InsuranceProvider = require('../models/InsuranceProvider');
+const Subscription = require("../models/Subscription"); // ✅ import this if you have one
+const Patient = require("../models/Patient");
 
 const router = express.Router();
 
@@ -89,6 +91,26 @@ router.get('/:id', async (req, res) => {
     } catch (error) {
       console.error('Error fetching provider:', error);
       res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  router.get('/:id/subscribed-patients', async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      // Step 1: Get all subscriptions for this provider
+      const subscriptions = await Subscription.find({ providerId: id });
+  
+      // Step 2: Extract unique patientIds
+      const patientIds = subscriptions.map((s) => s.patientId);
+  
+      // Step 3: Fetch patient names
+      const patients = await Patient.find({ _id: { $in: patientIds } }).select('_id name');
+  
+      res.json({ patients });
+    } catch (error) {
+      console.error("🔥 Error fetching subscribed patients:", error);
+      res.status(500).json({ message: "Server error", error });
     }
   });
 

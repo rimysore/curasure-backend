@@ -19,7 +19,9 @@ const hospitalBedRoutes = require('./routes/hospitalBedRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
+const userRoutes = require('./routes/userRoutes');
 const Message = require('./models/Message');
+const Doctor = require('./models/Doctor');
 
 
 // 👉 NEW Routes we made just now
@@ -81,20 +83,36 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-group-message", async ({ senderId, message }) => {
+    const doctor = await Doctor.findById(senderId).select("name");
+  
     const newMsg = new Message({
       senderId,
       message,
-      group: "doctors", // tag for group chat
-      timestamp: Date.now(),
+      type: "text",
+      isGroup: true,
+      group: "doctors",
     });
     await newMsg.save();
   
     io.emit("receive-group-message", {
       senderId,
+      senderName: doctor?.name || "Unknown",
       message,
       timestamp: newMsg.timestamp,
     });
   });
+
+  socket.on("message-delivered", async ({ senderId, receiverId }) => {
+    try {
+      await Message.updateMany(
+        { senderId, receiverId, delivered: false },
+        { $set: { delivered: true } }
+      );
+    } catch (err) {
+      console.error("❌ Error updating message delivery:", err);
+    }
+  });
+  
 });
 
 
@@ -145,7 +163,7 @@ app.use('/api', hospitalBedRoutes);                     // Hospital Bed Routes
 app.use('/api', hospitalRoutes);                        // Hospital Routes
 app.use('/api', appointmentRoutes);                     // Appointment Routes
 app.use('/api/insurance-provider', insuranceProviderRoutes); // Insurance Provider Routes
-
+app.use('/api/user', userRoutes);
 // 👉 NEW Mappings
 app.use('/api', insurancePackageRoutes);                // Insurance Package Routes
 app.use('/api', subscriptionRoutes);                    // Subscription Routes

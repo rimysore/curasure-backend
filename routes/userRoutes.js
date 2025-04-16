@@ -1,23 +1,42 @@
 const express = require('express');
-const multer = require('multer');
+
 const User = require('../models/Profile');
 const router = express.Router();
+const Doctor = require('../models/Doctor');
+const Patient = require('../models/Patient');
+const InsuranceProvider = require('../models/InsuranceProvider');
 
-// Multer storage configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/'); // Store files in uploads folder
-    },
-    filename: function (req, file, cb) {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
+// GET /api/user/:id
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Check Doctor
+    let user = await Doctor.findById(id).select('name profilePicture');
+    if (user) return res.json({ name: user.name, profilePicture: user.profilePicture });
+
+    // Check Patient
+    user = await Patient.findById(id).select('name profilePicture');
+    if (user) return res.json({ name: user.name, profilePicture: user.profilePicture });
+
+    // Check Insurance Provider
+    user = await InsuranceProvider.findById(id).select('name profilePicture');
+    if (user) return res.json({ name: user.name, profilePicture: user.profilePicture });
+
+    res.status(404).json({ message: 'User not found' });
+
+  } catch (error) {
+    console.error("🔥 Error fetching user profile:", error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
-const upload = multer({ storage });
+module.exports = router;
+
 
 /**
  * 📌 Upload user profile picture
- */
+
 router.post('/users/:userId/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
     const { userId } = req.params;
 
@@ -39,6 +58,6 @@ router.post('/users/:userId/upload-profile-picture', upload.single('profilePictu
         console.error('Error uploading profile picture:', error);
         res.status(500).json({ message: 'Error uploading profile picture', error });
     }
-});
+}); **/
 
 module.exports = router;

@@ -10,8 +10,16 @@ const Subscription = require('../models/Subscription');
 const mongoose = require('mongoose');
 
 router.get("/group/doctors", async (req, res) => {
-    const messages = await Message.find({ group: "doctors" }).sort({ timestamp: 1 });
-    res.json(messages);
+    try {
+        const messages = await Message.find({ isGroup: true, group: "doctors" })
+          .sort({ timestamp: 1 })
+          .select("senderId message timestamp");
+        
+        res.json(messages);
+      } catch (err) {
+        console.error("❌ Error loading doctor group messages:", err);
+        res.status(500).json({ message: "Server error", error: err });
+      }
   });
 
 router.get('/users/:userId/:role', async (req, res) => {

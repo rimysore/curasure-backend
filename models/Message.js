@@ -7,6 +7,9 @@ const MessageSchema = new mongoose.Schema({
   type: { type: String, default: "text" }, // text, image etc.
   delivered: { type: Boolean, default: false },
   timestamp: { type: Date, default: Date.now },
+
+  group: { type: String, default: null }, // e.g. "doctors"
+  isGroup: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model("Message", MessageSchema);

@@ -17,7 +17,7 @@ router.get("/group/doctors", async (req, res) => {
         
         res.json(messages);
       } catch (err) {
-        console.error("❌ Error loading doctor group messages:", err);
+        console.error("❌ Error loading doctor group message:", err);
         res.status(500).json({ message: "Server error", error: err });
       }
   });

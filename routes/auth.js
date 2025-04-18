@@ -7,6 +7,9 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const passport = require('passport');
 const { OAuth2Client } = require('google-auth-library');
+const { Client } = require('@duosecurity/duo_universal');
+
+
 
 const mongoose = require('mongoose');
 const User = require('../models/UserData');
@@ -19,10 +22,7 @@ const axios = require('axios');
 
 
 
-// Duo Credentials
-const duoIkey = process.env.DUO_INTEGRATION_KEY;
-const duoSkey = process.env.DUO_SECRET_KEY;
-const duoApiHost = process.env.DUO_API_HOSTNAME;
+
 
 // Configure Nodemailer to use Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -33,25 +33,6 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Helper Function to generate Duo TX (transaction)
-const generateDuoTx = (username) => {
-  const requestPayload = {
-    'username': username,
-    'factor': 'Push',  // Use Push, Passcode, or SMS for Duo authentication
-    'device': 'auto'  // Auto-device selection or specify a specific device
-  };
-
-  return axios.post(`https://${duoApiHost}/admin/v1/auth/prompt`, requestPayload, {
-    headers: {
-      'Authorization': `Basic ${Buffer.from(duoIkey + ':' + duoSkey).toString('base64')}`,
-    },
-  })
-  .then(response => response.data.tx)
-  .catch(error => {
-    console.error('Duo API Error:', error);
-    throw new Error('Failed to generate Duo transaction');
-  });
-};
 // Return reCAPTCHA site key to frontend
 router.get('/recaptcha-key', (req, res) => {
   const siteKey = process.env.RECAPTCHA_SITE_KEY;
@@ -60,67 +41,6 @@ router.get('/recaptcha-key', (req, res) => {
   }
   res.json({ siteKey });
 });
-
-// Duo Authentication Route
-router.post('/duo-auth', (req, res) => {
-  const username = req.body.email;  // Get the username (email) from the authenticated user
-
-  // Step 1: Generate Duo Authentication Request
-  generateDuoTx(username)
-    .then((tx) => {
-      if (tx) {
-        const duoUrl = `https://${duoApiHost}/frame/web/v1/auth?tx=${tx}`;
-        // Return the Duo URL to the frontend
-        res.json({ duo_url: duoUrl });
-      } else {
-        res.status(500).json({ message: 'Failed to generate Duo transaction' });
-      }
-    })
-    .catch((error) => {
-      console.error('Error during Duo authentication:', error);
-      res.status(500).json({ message: 'Error initiating Duo authentication' });
-    });
-});
-
-// Duo Callback Route (after Duo Push response)
-router.post('/duo-callback', (req, res) => {
-  const { tx, sig_response } = req.body;  // Duo response from frontend
-
-  // Step 3: Verify the Duo response
-  verifyDuoResponse(tx, sig_response)
-    .then((authResponse) => {
-      if (authResponse.stat === 'OK') {
-        // Duo authentication successful
-        const token = jwt.sign({ email: req.user.email, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ message: 'Duo authentication successful', token });
-      } else {
-        // Duo authentication failed
-        res.status(400).json({ message: 'Duo authentication failed' });
-      }
-    })
-    .catch((error) => {
-      res.status(500).json({ message: 'Duo authentication error', error });
-    });
-});
-
-// Helper Function to verify Duo response
-const verifyDuoResponse = (tx, sig_response) => {
-  const requestPayload = {
-    'tx': tx,
-    'sig_response': sig_response
-  };
-
-  return axios.post(`https://${duoApiHost}/admin/v1/auth/verify`, requestPayload, {
-    headers: {
-      'Authorization': `Basic ${Buffer.from(duoIkey + ':' + duoSkey).toString('base64')}`,
-    },
-  })
-  .then(response => response.data)
-  .catch(error => {
-    console.error('Duo Verification Error:', error);
-    throw error;
-  });
-};
 
 // Google OAuth Route
 router.get('/google', passport.authenticate('google', {
@@ -182,75 +102,208 @@ function isValidEmail(email) {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     return emailRegex.test(email);
   }
-
-router.post('/register', async (req, res) => {
-  const { email, password, role, theme, name } = req.body;  // Added name to destructure
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ message: 'Invalid email format' });
-  }
-  if (!email || !password || !name) {  // Ensure name is required
-    return res.status(400).json({ message: 'Email, password, and name are required' });
-  }
-
-  try {
+  router.post('/register', async (req, res) => {
+    const { email, password, name, role, theme } = req.body;
+  
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    if (!email || !password || !name) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+  
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists, please login' });
+      return res.status(400).json({ message: 'User already exists' });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword, role, theme: theme || 'default', name });
-    await newUser.save();
-
-    // Send email notification after registration
-    transporter.sendMail({
-      from: `Support <${process.env.MAIL_USER}>`,
-      to: email,
-      subject: 'Registration Successful',
-      html: `<p>Welcome, ${name}!</p><p>Your account has been successfully created.</p>`
+  
+    // Store in session before Duo
+    req.session.pendingUser = { email, password, name, role, theme };
+  
+    // 🔐 Create Duo Client
+    const duo = new Client({
+      clientId: process.env.DUO_CLIENT_ID,
+      clientSecret: process.env.DUO_CLIENT_SECRET,
+      apiHost: process.env.DUO_API_HOSTNAME,
+      redirectUrl: "http://localhost:5002/api/auth/duo/callback"
     });
-
-    res.status(201).json({ message: 'User registered successfully' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({
-      message: 'Server error',
-      error: error.message || 'Unknown error occurred'
-    });
-  }
-});
-
-router.post('/login', async (req, res) => {
-  const { email, password, role } = req.body;
-
-  if (!email || !password || !role) {
-    return res.status(400).json({ message: 'Please provide email, password, and role' });
-  }
-
-  try {
-    const user = await User.findOne({ email, role });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(400).json({ message: 'Invalid email, password, or role' });
+  
+    // Generate & store state
+    const state = duo.generateState();
+    req.session.duoState = state;
+  
+    const authUrl = duo.createAuthUrl(email, state);
+    res.json({ duoAuthUrl: authUrl });
+  });
+  
+  
+  
+  router.get('/duo/callback', async (req, res) => {
+    const { duo_code: code, state } = req.query;
+    const pendingUser = req.session.pendingUser;
+    console.log("Duo Callback Triggered");
+    console.log("Code:", code);
+    console.log("State:", state);
+    console.log("Session.pendingUser:", req.session.pendingUser);
+    console.log("Session.duoState:", req.session.duoState);
+    if (!code || !state || !pendingUser || state !== req.session.duoState) {
+      return res.status(400).json({ message: 'Missing or invalid Duo code/state' });
     }
+  
+    try {
+      const duo = new Client({
+        clientId: process.env.DUO_CLIENT_ID,
+        clientSecret: process.env.DUO_CLIENT_SECRET,
+        apiHost: process.env.DUO_API_HOSTNAME,
+        redirectUrl: "http://localhost:5002/api/auth/duo/callback"
+      });
+  
+      await duo.exchangeAuthorizationCodeFor2FAResult(code, pendingUser.email);
+  
+      const hashedPassword = await bcrypt.hash(pendingUser.password, 10);
+      const newUser = new User({
+        email: pendingUser.email,
+        name: pendingUser.name,
+        password: hashedPassword,
+        role: pendingUser.role,
+        theme: pendingUser.theme || 'default'
+      });
+      await newUser.save();
+  
+      // Clear session values
+      req.session.pendingUser = null;
+      req.session.duoState = null;
+  
+      // Send email
+      transporter.sendMail({
+        from: `Support <${process.env.MAIL_USER}>`,
+        to: newUser.email,
+        subject: 'Registration Successful',
+        html: `<p>Welcome, ${newUser.name}!</p><p>Your account has been created.</p>`
+      });
+  
+      // ✅ Redirect to frontend success page
+      res.send(`
+        <html>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ duoStatus: 'success' }, 'http://localhost:5173');
+                window.close();
+              } else {
+                window.location.href = 'http://localhost:5173/register-success';
+              }
+            </script>
+            <p>Duo verification successful. You may close this window.</p>
+          </body>
+        </html>
+      `);
+      
+  
+    } catch (error) {
+      console.error('Duo callback error:', error);
+      res.status(500).json({ message: 'Duo verification failed' });
+    }
+  });
+  
+  
 
-    const token = jwt.sign({_id:user._id, email: user.email, role: user.role, theme: user.theme }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    // ✅ Updated response to send user data as well
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,         // ✅ sending MongoDB _id
-        email: user.email,
-        role: user.role,
-        theme: user.theme,
-        name: user.name || "", // ✅ if you have name field
+  router.post('/login', async (req, res) => {
+    const { email, password, role } = req.body;
+  
+    if (!email || !password || !role) {
+      return res.status(400).json({ message: 'Please provide email, password, and role' });
+    }
+  
+    try {
+      const user = await User.findOne({ email, role });
+      if (!user || !(await bcrypt.compare(password, user.password))) {
+        return res.status(400).json({ message: 'Invalid email, password, or role' });
       }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
-  }
-});
+  
+      const client = new Client({
+        clientId: process.env.DUO_CLIENT_ID,
+        clientSecret: process.env.DUO_CLIENT_SECRET,
+        apiHost: process.env.DUO_API_HOSTNAME,
+        redirectUrl: "http://localhost:5002/api/auth/duo/login-callback"
+      });
+  
+      req.session.pendingLogin = { email, role };
+      req.session.duoState = client.generateState();
+      console.log("➡️ Login session pendingLogin:", req.session.pendingLogin);
+      console.log("➡️ Login session duoState:", req.session.duoState);
+
+      const duoAuthUrl = client.createAuthUrl(email, req.session.duoState);
+  
+      res.json({ duoAuthUrl });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Server error', error });
+    }
+  });
+  router.get('/duo/login-callback', async (req, res) => {
+    
+
+    const code = req.query.duo_code;
+    const state = req.query.state;
+
+    console.log("↩️ Callback received");
+    console.log("Duo Code:", code);
+    console.log("State:", state);
+    console.log("Session.pendingLogin:", req.session.pendingLogin);
+    console.log("Session.duoState:", req.session.duoState);
+    const pending = req.session.pendingLogin;
+  
+    if (!code || !state || state !== req.session.duoState || !pending) {
+      return res.status(400).send("Duo login failed.");
+    }
+  
+    try {
+      const client = new Client({
+        clientId: process.env.DUO_CLIENT_ID,
+        clientSecret: process.env.DUO_CLIENT_SECRET,
+        apiHost: process.env.DUO_API_HOSTNAME,
+        redirectUrl: "http://localhost:5002/api/auth/duo/login-callback"
+      });
+  
+      await client.exchangeAuthorizationCodeFor2FAResult(code, pending.email);
+  
+      const user = await User.findOne({ email: pending.email, role: pending.role });
+      const token = jwt.sign(
+        { _id: user._id, email: user.email, role: user.role, theme: user.theme },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+  
+      req.session.pendingLogin = null;
+      req.session.duoState = null;
+  
+      res.send(`
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              duoLoginSuccess: true,
+              token: ${JSON.stringify(token)},
+              user: ${JSON.stringify({
+                id: user._id,
+                email: user.email,
+                role: user.role,
+                name: user.name,
+                theme: user.theme,
+              })}
+            }, "http://localhost:5173");
+            window.close();
+          } else {
+            document.body.innerHTML = '<h2>Login successful. You may close this tab.</h2>';
+          }
+        </script>
+      `);
+    } catch (err) {
+      console.error("Duo login callback error:", err);
+      res.status(500).send("Duo verification failed");
+    }
+  });
+  
 
 
 // Home Route (Before Login & After Logout)

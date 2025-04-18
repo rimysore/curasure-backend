@@ -4,10 +4,10 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const session = require('express-session');
 const cors = require('cors');
-
 
 // Import routers
 const authRoutes = require('./routes/auth');
@@ -37,6 +37,7 @@ require('./config/passportConfig');
 // Initialize app
 dotenv.config();
 const app = express();
+
 
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -143,10 +144,16 @@ app.use(express.json());
 app.use(bodyParser.json());
 
 // Session setup (important before passport)
+app.use(cookieParser());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
+  cookie: {
+    secure: false,         // true if HTTPS
+    httpOnly: true,
+    sameSite: 'lax'        // ⚠️ Important for cross-origin session during redirects
+  }
 }));
 
 // Passport setup

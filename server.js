@@ -9,7 +9,7 @@ const passport = require('passport');
 const session = require('express-session');
 const cors = require('cors');
 
-// Import routers
+// Routers
 const authRoutes = require('./routes/auth');
 const doctorRoutes = require('./routes/DoctorRoutes');
 const covidRoutes = require('./routes/covidRoutes');
@@ -20,34 +20,66 @@ const hospitalRoutes = require('./routes/hospitalRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
 const userRoutes = require('./routes/userRoutes');
-const Message = require('./models/Message');
-const Doctor = require('./models/Doctor');
-
-
-// 👉 NEW Routes we made just now
 const insurancePackageRoutes = require('./routes/insurancePackageRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const covidArticleRoutes = require('./routes/covidArticleRoutes');
 const statisticsRoutes = require('./routes/statisticsRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 
-// Import Passport config
+// Models
+const Message = require('./models/Message');
+const Doctor = require('./models/Doctor');
+
+// Config
 require('./config/passportConfig');
-
-// Initialize app
 dotenv.config();
+
+// App setup
 const app = express();
-
-
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: '*', // match your frontend port
+    origin: '*', // You can limit this in prod
     methods: ['GET', 'POST']
   }
 });
 
-// Connected users: userId -> socket.id
+// ✅ CORS setup
+const allowedOrigins = [process.env.CLIENT_ORIGIN || 'http://localhost:5173'];
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
+// Body parsers
+app.use(express.json());
+app.use(bodyParser.json());
+
+// Session
+app.use(cookieParser());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,
+    httpOnly: true,
+    sameSite: 'lax'
+  }
+}));
+
+// Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ✅ MongoDB connect
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => console.log('MongoDB connected'))
+  .catch((err) => console.error('Database connection error:', err));
+
+// ✅ Socket.IO logic
 let onlineUsers = {};
 
 io.on("connection", (socket) => {
@@ -70,36 +102,29 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on('typing', ({ to }) => {
+  socket.on("typing", ({ to }) => {
     const toSocket = onlineUsers[to];
-    if (toSocket) io.to(toSocket).emit('typing');
-  });
-
-  socket.on("disconnect", () => {
-    const userId = Object.keys(onlineUsers).find((key) => onlineUsers[key] === socket.id);
-    if (userId) {
-      delete onlineUsers[userId];
-      io.emit("user-online-status", { userId, online: false });
-    }
+    if (toSocket) io.to(toSocket).emit("typing");
   });
 
   socket.on("send-group-message", async ({ senderId, message }) => {
     const doctor = await Doctor.findById(senderId).select("name");
-  
+
     const newMsg = new Message({
       senderId,
       message,
       type: "text",
       isGroup: true,
-      group: "doctors",
+      group: "doctors"
     });
+
     await newMsg.save();
-  
+
     io.emit("receive-group-message", {
       senderId,
       senderName: doctor?.name || "Unknown",
       message,
-      timestamp: newMsg.timestamp,
+      timestamp: newMsg.timestamp
     });
   });
 
@@ -110,79 +135,41 @@ io.on("connection", (socket) => {
         { $set: { delivered: true } }
       );
     } catch (err) {
-      console.error("❌ Error updating message delivery:", err);
+      console.error("❌ Error updating delivery:", err);
     }
   });
-  
+
+  socket.on("disconnect", () => {
+    const userId = Object.keys(onlineUsers).find(key => onlineUsers[key] === socket.id);
+    if (userId) {
+      delete onlineUsers[userId];
+      io.emit("user-online-status", { userId, online: false });
+    }
+  });
 });
 
-
-
-// CORS setup
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
-
-
-
-
-
-
-
- 
-
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-}).then(() => {
-  console.log('MongoDB connected');
-}).catch((err) => {
-  console.error('Database connection error:', err);
-});
-
-// Body Parser
-app.use(express.json());
-app.use(bodyParser.json());
-
-// Session setup (important before passport)
-app.use(cookieParser());
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false,         // true if HTTPS
-    httpOnly: true,
-    sameSite: 'lax'        // ⚠️ Important for cross-origin session during redirects
-  }
-}));
-
-// Passport setup
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Mount routes
-app.use('/api/auth', authRoutes);                      // Auth Routes
-app.use('/api', doctorRoutes);                          // Doctor Routes
-app.use('/api', covidRoutes);                           // Covid Routes
-app.use('/api', patientRoutes);                         // Patient Routes
-app.use('/api', feedbackRoutes);                        // Feedback Routes
-app.use('/api', hospitalBedRoutes);                     // Hospital Bed Routes
-app.use('/api', hospitalRoutes);                        // Hospital Routes
-app.use('/api', appointmentRoutes);                     // Appointment Routes
-app.use('/api/insurance-provider', insuranceProviderRoutes); // Insurance Provider Routes
+// ✅ Routes
+app.use('/api/auth', authRoutes);
+app.use('/api', doctorRoutes);
+app.use('/api', covidRoutes);
+app.use('/api', patientRoutes);
+app.use('/api', feedbackRoutes);
+app.use('/api', hospitalBedRoutes);
+app.use('/api', hospitalRoutes);
+app.use('/api', appointmentRoutes);
+app.use('/api/insurance-provider', insuranceProviderRoutes);
 app.use('/api/user', userRoutes);
-// 👉 NEW Mappings
-app.use('/api', insurancePackageRoutes);                // Insurance Package Routes
-app.use('/api', subscriptionRoutes);                    // Subscription Routes
-app.use('/api/covid-articles', covidArticleRoutes);                   // COVID-19 Article Routes
-app.use('/api', statisticsRoutes);        
-app.use("/api/chat", chatRoutes);              // Statistics Routes
+app.use('/api', insurancePackageRoutes);
+app.use('/api', subscriptionRoutes);
+app.use('/api/covid-articles', covidArticleRoutes);
+app.use('/api', statisticsRoutes);
+app.use('/api/chat', chatRoutes);
 
-// Basic health route
+// Health check
 app.get('/', (req, res) => res.send('Chat server is running'));
 
-// Start the server
+// Server start
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

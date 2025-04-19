@@ -11,7 +11,7 @@ const cors = require('cors');
 
 // Routers
 const authRoutes = require('./routes/auth');
-const doctorRoutes = require('./routes/DoctorRoutes');
+const doctorRoutes  = require('./routes/docRoutes');
 const covidRoutes = require('./routes/covidRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');

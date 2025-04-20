@@ -35,6 +35,7 @@ require('./config/passportConfig');
 dotenv.config();
 
 // App setup
+//new setup
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {

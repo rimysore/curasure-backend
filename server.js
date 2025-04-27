@@ -1,4 +1,5 @@
 const express = require('express');
+const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -64,6 +65,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI, // MongoDB URI for session storage
+    collectionName: 'sessions',       // Name of the collection to store sessions
+    ttl: 14 * 24 * 60 * 60,           // Session expiration (2 weeks)
+  }),
   cookie: {
     secure: true,
     httpOnly: true,

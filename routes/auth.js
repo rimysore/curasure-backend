@@ -142,78 +142,83 @@ function isValidEmail(email) {
   
   router.get('/duo/callback', async (req, res) => {
     const { duo_code: code, state } = req.query;
+    
+    // Check for missing state or duo_code
+    if (!code || !state) {
+      return res.status(400).json({ message: 'Missing Duo code/state' });
+    }
+  
+    // Ensure the session contains pending user data and duoState
     const pendingUser = req.session.pendingUser;
-    console.log("Session data before validation:", req.session);
+    const sessionDuoState = req.session.duoState;
+  
     console.log("Duo Callback Triggered");
     console.log("Code:", code);
     console.log("State:", state);
-    console.log("Session.pendingUser:", pendingUser);
+    console.log("Session.pendingUser:", req.session.pendingUser);
     console.log("Session.duoState:", req.session.duoState);
-   
-    // Validate Duo code and state
-    if (!code || !state || !pendingUser || state !== req.session.duoState) {
-      return res.status(400).json({ message: 'Missing or invalid Duo code/state' });
+  
+    // If the state in the query doesn't match the one in the session, return error
+    if (!pendingUser || state !== sessionDuoState) {
+      return res.status(400).json({ message: 'Invalid or missing Duo state' });
     }
-   
+  
     try {
-      // 🔐 Duo Client setup with env var for redirect
       const duo = new Client({
         clientId: process.env.DUO_CLIENT_ID,
         clientSecret: process.env.DUO_CLIENT_SECRET,
         apiHost: process.env.DUO_API_HOSTNAME,
-        redirectUrl: process.env.DUO_REGISTER_CALLBACK_URL  // ✅ Updated
+        redirectUrl: process.env.DUO_REGISTER_CALLBACK_URL,
       });
-   
-      // Verify Duo authorization
+  
+      // Exchange the code for 2FA result
       await duo.exchangeAuthorizationCodeFor2FAResult(code, pendingUser.email);
-   
-      // Hash password & create user
+  
       const hashedPassword = await bcrypt.hash(pendingUser.password, 10);
       const newUser = new User({
         email: pendingUser.email,
         name: pendingUser.name,
         password: hashedPassword,
         role: pendingUser.role,
-        theme: pendingUser.theme || 'default'
+        theme: pendingUser.theme || 'default',
       });
       await newUser.save();
-   
-      // Clear session data
+  
+      // Clear session values
       req.session.pendingUser = null;
       req.session.duoState = null;
-   
-      // Send confirmation email
+  
+      // Send email notification
       transporter.sendMail({
         from: `Support <${process.env.MAIL_USER}>`,
         to: newUser.email,
         subject: 'Registration Successful',
         html: `<p>Welcome, ${newUser.name}!</p><p>Your account has been created.</p>`
       });
-   
-      // ✅ Redirect/postMessage to frontend
-      const frontendUrl = process.env.BASE_URL;
-   
+  
+      // Redirect the user to the frontend
       res.send(`
-  <html>
-  <body>
-  <script>
+        <html>
+          <body>
+            <script>
               if (window.opener) {
-                window.opener.postMessage({ duoStatus: 'success' }, '${frontendUrl}');
+                window.opener.postMessage({ duoStatus: 'success' }, "https://curasure-frontend.onrender.com");
                 window.close();
               } else {
-                window.location.href = '${frontendUrl}/register-success';
+                window.location.href = 'https://curasure-frontend.onrender.com/curasure/register-success';
               }
-  </script>
-  <p>Duo verification successful. You may close this window.</p>
-  </body>
-  </html>
+            </script>
+            <p>Duo verification successful. You may close this window.</p>
+          </body>
+        </html>
       `);
-   
+  
     } catch (error) {
       console.error('Duo callback error:', error);
       res.status(500).json({ message: 'Duo verification failed' });
     }
   });
+  
   
   
 

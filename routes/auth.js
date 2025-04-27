@@ -145,6 +145,10 @@ function isValidEmail(email) {
     const { duo_code: code, state } = req.query;
     console.log("Cookies in Duo callback:", req.cookies);
     console.log("Session data in Duo callback:", req.session);
+
+    if (!state || state !== req.session.duoState) {
+      return res.status(400).json({ message: 'Invalid or missing Duo state' });
+    }
   
     // Ensure the session contains the duoState and pendingUser
     const pendingUser = req.session.pendingUser;
@@ -155,11 +159,6 @@ function isValidEmail(email) {
     console.log("State:", state);
     console.log("Session.pendingUser:", req.session.pendingUser);
     console.log("Session.duoState:", req.session.duoState);
-  
-    // If the state doesn't match or is missing, return an error
-    if (!pendingUser || state !== sessionDuoState) {
-      return res.status(400).json({ message: 'Invalid or missing Duo state' });
-    }
   
     try {
       const duo = new Client({

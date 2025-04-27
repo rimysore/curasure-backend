@@ -14,7 +14,6 @@ const { Client } = require('@duosecurity/duo_universal');
 const mongoose = require('mongoose');
 const User = require('../models/UserData');
 
-require('dotenv').config();
 
 const router = express.Router();
 const USERS_FILE = path.join(__dirname, '../users.json');
@@ -152,9 +151,7 @@ router.get('/duo/callback', async (req, res) => {
   const pendingUser = req.session.pendingUser;
   const sessionDuoState = req.session.duoState;
 
-  if (!state || state !== sessionDuoState || !pendingUser) {
-    return res.status(400).json({ message: 'Invalid or missing Duo state' });
-  }
+  
 
   try {
     const duo = new Client({

@@ -104,35 +104,34 @@ function isValidEmail(email) {
   }
   router.post('/register', async (req, res) => {
     const { email, password, name, role, theme } = req.body;
-  
+    // Validate email format
     if (!isValidEmail(email)) {
       return res.status(400).json({ message: 'Invalid email format' });
     }
+    // Check for missing required fields
     if (!email || !password || !name) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-  
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
-  
-    // Store in session before Duo
+    // Store user data in session before Duo verification
     req.session.pendingUser = { email, password, name, role, theme };
-  
-    // 🔐 Create Duo Client
+    // 🔐 Create Duo Client with env variable for redirect URL
     const duo = new Client({
       clientId: process.env.DUO_CLIENT_ID,
       clientSecret: process.env.DUO_CLIENT_SECRET,
       apiHost: process.env.DUO_API_HOSTNAME,
-      redirectUrl: "http://localhost:5002/api/auth/duo/callback"
+      redirectUrl: process.env.DUO_REGISTER_CALLBACK_URL  // ✅ Updated
     });
-  
-    // Generate & store state
+    // Generate state for Duo
     const state = duo.generateState();
     req.session.duoState = state;
-  
+    // Create Duo Auth URL
     const authUrl = duo.createAuthUrl(email, state);
+    // Respond with Duo Auth URL
     res.json({ duoAuthUrl: authUrl });
   });
   
@@ -141,25 +140,31 @@ function isValidEmail(email) {
   router.get('/duo/callback', async (req, res) => {
     const { duo_code: code, state } = req.query;
     const pendingUser = req.session.pendingUser;
+   
     console.log("Duo Callback Triggered");
     console.log("Code:", code);
     console.log("State:", state);
-    console.log("Session.pendingUser:", req.session.pendingUser);
+    console.log("Session.pendingUser:", pendingUser);
     console.log("Session.duoState:", req.session.duoState);
+   
+    // Validate Duo code and state
     if (!code || !state || !pendingUser || state !== req.session.duoState) {
       return res.status(400).json({ message: 'Missing or invalid Duo code/state' });
     }
-  
+   
     try {
+      // 🔐 Duo Client setup with env var for redirect
       const duo = new Client({
         clientId: process.env.DUO_CLIENT_ID,
         clientSecret: process.env.DUO_CLIENT_SECRET,
         apiHost: process.env.DUO_API_HOSTNAME,
-        redirectUrl: "http://localhost:5002/api/auth/duo/callback"
+        redirectUrl: process.env.DUO_REGISTER_CALLBACK_URL  // ✅ Updated
       });
-  
+   
+      // Verify Duo authorization
       await duo.exchangeAuthorizationCodeFor2FAResult(code, pendingUser.email);
-  
+   
+      // Hash password & create user
       const hashedPassword = await bcrypt.hash(pendingUser.password, 10);
       const newUser = new User({
         email: pendingUser.email,
@@ -169,37 +174,38 @@ function isValidEmail(email) {
         theme: pendingUser.theme || 'default'
       });
       await newUser.save();
-  
-      // Clear session values
+   
+      // Clear session data
       req.session.pendingUser = null;
       req.session.duoState = null;
-  
-      // Send email
+   
+      // Send confirmation email
       transporter.sendMail({
         from: `Support <${process.env.MAIL_USER}>`,
         to: newUser.email,
         subject: 'Registration Successful',
         html: `<p>Welcome, ${newUser.name}!</p><p>Your account has been created.</p>`
       });
-  
-      // ✅ Redirect to frontend success page
+   
+      // ✅ Redirect/postMessage to frontend
+      const frontendUrl = process.env.BASE_URL;
+   
       res.send(`
-        <html>
-          <body>
-            <script>
+  <html>
+  <body>
+  <script>
               if (window.opener) {
-                window.opener.postMessage({ duoStatus: 'success' }, 'http://localhost:5173');
+                window.opener.postMessage({ duoStatus: 'success' }, '${frontendUrl}');
                 window.close();
               } else {
-                window.location.href = 'http://localhost:5173/register-success';
+                window.location.href = '${frontendUrl}/register-success';
               }
-            </script>
-            <p>Duo verification successful. You may close this window.</p>
-          </body>
-        </html>
+  </script>
+  <p>Duo verification successful. You may close this window.</p>
+  </body>
+  </html>
       `);
-      
-  
+   
     } catch (error) {
       console.error('Duo callback error:', error);
       res.status(500).json({ message: 'Duo verification failed' });

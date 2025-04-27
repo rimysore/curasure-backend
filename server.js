@@ -49,8 +49,12 @@ const io = socketIo(server, {
 const allowedOrigins = [process.env.CLIENT_ORIGIN || 'http://localhost:5173'];
 app.use(cors({
   origin: allowedOrigins,
+  methods: 'GET,POST,PUT,DELETE',
   credentials: true
 }));
+console.log("Allowed Origin: ", process.env.CLIENT_ORIGIN);
+
+ 
 
 // Body parsers
 app.use(express.json());

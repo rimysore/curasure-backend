@@ -1,10 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
 const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
-const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const session = require('express-session');
@@ -55,6 +55,7 @@ app.use(cors({
   credentials: true  // Allow credentials (cookies)
 }));
 app.options('*', cors());
+
 // Body parsers
 app.use(express.json());
 app.use(bodyParser.json());
@@ -75,6 +76,7 @@ app.use(session({
     httpOnly: true,                                // Prevent JavaScript access to cookies
     sameSite: 'None',                              // Allow cross-origin cookies
     maxAge: 24 * 60 * 60 * 1000,
+    domain: 'curasure-frontend-production.onrender.com', // Ensure this is set correctly
   }
 }));
 

@@ -1,7 +1,10 @@
 const express = require('express');
+const MongoStore = require('connect-mongo');
+const mongoose = require('mongoose');
 const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
+const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const session = require('express-session');
@@ -30,6 +33,7 @@ const Doctor = require('./models/Doctor');
 
 // Config
 require('./config/passportConfig');
+dotenv.config();
 
 // App setup
 const app = express();
@@ -42,33 +46,35 @@ const io = socketIo(server, {
 });
 
 // ✅ CORS setup
-const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend-production.onrender.com']; // Correctly set frontend URL
+const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend.onrender.com']; // Correctly set frontend URL
 console.log("Allowed Origin: ", process.env.CLIENT_ORIGIN);
 
 app.use(cors({
-  origin: 'https://curasure-frontend-production.onrender.com',
+  origin: 'https://curasure-frontend.onrender.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow OPTIONS for preflight
   credentials: true  // Allow credentials (cookies)
 }));
 app.options('*', cors());
-
 // Body parsers
 app.use(express.json());
 app.use(bodyParser.json());
 
-// Session (using in-memory session store instead of MongoDB)
+// Session
 app.use(cookieParser());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
-  // In-memory session store (no MongoDB)
-  store: new session.MemoryStore(),
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI, // MongoDB URI for session storage
+    collectionName: 'sessions',       // Name of the collection to store sessions
+    ttl: 14 * 24 * 60 * 60,           // Session expiration (2 weeks)
+  }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',  // Secure cookies in production
+    secure: process.env.NODE_ENV === 'production', // Secure cookies in production
     httpOnly: true,                                // Prevent JavaScript access to cookies
     sameSite: 'None',                              // Allow cross-origin cookies
-    maxAge: 24 * 60 * 60 * 1000,                   // Cookie expiration (1 day)
+    maxAge: 24 * 60 * 60 * 1000,
   }
 }));
 
@@ -76,15 +82,13 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ✅ MongoDB connect (optional for now, can be skipped if no MongoDB is used)
-if (process.env.MONGODB_URI) {
-  const mongoose = require('mongoose');
-  mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  }).then(() => console.log('MongoDB connected'))
-    .catch((err) => console.error('Database connection error:', err));
-}
+// ✅ MongoDB connect
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('MongoDB connected'))
+  .catch((err) => console.error('Database connection error:', err));
 
 // ✅ Socket.IO logic
 let onlineUsers = {};

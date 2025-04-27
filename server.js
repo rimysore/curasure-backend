@@ -49,7 +49,7 @@ const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend.
 console.log("Allowed Origin: ", process.env.CLIENT_ORIGIN);
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: 'https://curasure-frontend.onrender.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow OPTIONS for preflight
   credentials: true  // Allow credentials (cookies)
 }));

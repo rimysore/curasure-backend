@@ -237,14 +237,14 @@ function isValidEmail(email) {
         clientId: process.env.DUO_CLIENT_ID,
         clientSecret: process.env.DUO_CLIENT_SECRET,
         apiHost: process.env.DUO_API_HOSTNAME,
-        redirectUrl: "http://localhost:5002/api/auth/duo/login-callback"
+        redirectUrl: process.env.DUO_CALLBACK_URL  // Using env var for Duo callback
       });
   
       req.session.pendingLogin = { email, role };
       req.session.duoState = client.generateState();
       console.log("➡️ Login session pendingLogin:", req.session.pendingLogin);
       console.log("➡️ Login session duoState:", req.session.duoState);
-
+  
       const duoAuthUrl = client.createAuthUrl(email, req.session.duoState);
   
       res.json({ duoAuthUrl });
@@ -253,12 +253,11 @@ function isValidEmail(email) {
       res.status(500).json({ message: 'Server error', error });
     }
   });
+  
   router.get('/duo/login-callback', async (req, res) => {
-    
-
     const code = req.query.duo_code;
     const state = req.query.state;
-
+  
     console.log("↩️ Callback received");
     console.log("Duo Code:", code);
     console.log("State:", state);
@@ -275,7 +274,7 @@ function isValidEmail(email) {
         clientId: process.env.DUO_CLIENT_ID,
         clientSecret: process.env.DUO_CLIENT_SECRET,
         apiHost: process.env.DUO_API_HOSTNAME,
-        redirectUrl: "http://localhost:5002/api/auth/duo/login-callback"
+        redirectUrl: process.env.DUO_CALLBACK_URL  // Using env var for Duo callback
       });
   
       await client.exchangeAuthorizationCodeFor2FAResult(code, pending.email);
@@ -303,7 +302,7 @@ function isValidEmail(email) {
                 name: user.name,
                 theme: user.theme,
               })}
-            }, "http://localhost:5173");
+            }, "https://curasure-frontend.vercel.app");  // Updated frontend origin for prod
             window.close();
           } else {
             document.body.innerHTML = '<h2>Login successful. You may close this tab.</h2>';
@@ -315,6 +314,7 @@ function isValidEmail(email) {
       res.status(500).send("Duo verification failed");
     }
   });
+  
   
 
 

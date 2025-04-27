@@ -120,6 +120,8 @@ function isValidEmail(email) {
     // Store user data in session before Duo verification
     req.session.pendingUser = { email, password, name, role, theme };
     // 🔐 Create Duo Client with env variable for redirect URL
+    console.log("Session data before Duo auth:", req.session);
+ 
     const duo = new Client({
       clientId: process.env.DUO_CLIENT_ID,
       clientSecret: process.env.DUO_CLIENT_SECRET,

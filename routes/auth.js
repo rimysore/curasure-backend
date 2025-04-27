@@ -141,12 +141,15 @@ function isValidEmail(email) {
   
   
   router.get('/duo/callback', async (req, res) => {
+
     const { duo_code: code, state } = req.query;
+    console.log("Cookies in Duo callback:", req.cookies);
+    console.log("Session data in Duo callback:", req.session);
   
     // Ensure the session contains the duoState and pendingUser
     const pendingUser = req.session.pendingUser;
     const sessionDuoState = req.session.duoState;
-  
+    
     console.log("Duo Callback Triggered");
     console.log("Code:", code);
     console.log("State:", state);

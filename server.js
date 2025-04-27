@@ -46,11 +46,11 @@ const io = socketIo(server, {
 });
 
 // ✅ CORS setup
-const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend.onrender.com']; // Correctly set frontend URL
+const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend-production.onrender.com']; // Correctly set frontend URL
 console.log("Allowed Origin: ", process.env.CLIENT_ORIGIN);
 
 app.use(cors({
-  origin: 'https://curasure-frontend.onrender.com',
+  origin: 'https://curasure-frontend-production.onrender.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow OPTIONS for preflight
   credentials: true  // Allow credentials (cookies)
 }));

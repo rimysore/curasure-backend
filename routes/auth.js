@@ -130,6 +130,7 @@ function isValidEmail(email) {
     const state = duo.generateState();
     req.session.duoState = state;
     // Create Duo Auth URL
+    console.log("Saved Duo state in session:", req.session.duoState);
     const authUrl = duo.createAuthUrl(email, state);
     // Respond with Duo Auth URL
     res.json({ duoAuthUrl: authUrl });

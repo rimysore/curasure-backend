@@ -142,13 +142,8 @@ function isValidEmail(email) {
   
   router.get('/duo/callback', async (req, res) => {
     const { duo_code: code, state } = req.query;
-    
-    // Check for missing state or duo_code
-    if (!code || !state) {
-      return res.status(400).json({ message: 'Missing Duo code/state' });
-    }
   
-    // Ensure the session contains pending user data and duoState
+    // Ensure the session contains the duoState and pendingUser
     const pendingUser = req.session.pendingUser;
     const sessionDuoState = req.session.duoState;
   
@@ -158,7 +153,7 @@ function isValidEmail(email) {
     console.log("Session.pendingUser:", req.session.pendingUser);
     console.log("Session.duoState:", req.session.duoState);
   
-    // If the state in the query doesn't match the one in the session, return error
+    // If the state doesn't match or is missing, return an error
     if (!pendingUser || state !== sessionDuoState) {
       return res.status(400).json({ message: 'Invalid or missing Duo state' });
     }
@@ -171,7 +166,7 @@ function isValidEmail(email) {
         redirectUrl: process.env.DUO_REGISTER_CALLBACK_URL,
       });
   
-      // Exchange the code for 2FA result
+      // Exchange the code for the 2FA result
       await duo.exchangeAuthorizationCodeFor2FAResult(code, pendingUser.email);
   
       const hashedPassword = await bcrypt.hash(pendingUser.password, 10);
@@ -184,7 +179,7 @@ function isValidEmail(email) {
       });
       await newUser.save();
   
-      // Clear session values
+      // Clear session data only after successful registration
       req.session.pendingUser = null;
       req.session.duoState = null;
   
@@ -196,7 +191,7 @@ function isValidEmail(email) {
         html: `<p>Welcome, ${newUser.name}!</p><p>Your account has been created.</p>`
       });
   
-      // Redirect the user to the frontend
+      // Redirect the user to the frontend success page
       res.send(`
         <html>
           <body>
@@ -218,6 +213,7 @@ function isValidEmail(email) {
       res.status(500).json({ message: 'Duo verification failed' });
     }
   });
+  
   
   
   

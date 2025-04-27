@@ -11,7 +11,7 @@ const cors = require('cors');
 
 // Routers
 const authRoutes = require('./routes/auth');
-const doctorRoutes  = require('./routes/docRoutes');
+const doctorRoutes = require('./routes/docRoutes');
 const covidRoutes = require('./routes/covidRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
@@ -35,26 +35,24 @@ require('./config/passportConfig');
 dotenv.config();
 
 // App setup
-//new setup
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: '*', // You can limit this in prod
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST'],
   }
 });
 
 // ✅ CORS setup
-const allowedOrigins = [process.env.CLIENT_ORIGIN || 'http://localhost:5173'];
-app.use(cors({
-  origin: allowedOrigins,
-  methods: 'GET,POST,PUT,DELETE',
-  credentials: true
-}));
+const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend.onrender.com']; // Correctly set frontend URL
 console.log("Allowed Origin: ", process.env.CLIENT_ORIGIN);
 
- 
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow OPTIONS for preflight
+  credentials: true  // Allow credentials (cookies)
+}));
 
 // Body parsers
 app.use(express.json());
@@ -69,7 +67,7 @@ app.use(session({
   cookie: {
     secure: false,
     httpOnly: true,
-    sameSite: 'lax'
+    sameSite: 'lax',
   }
 }));
 
@@ -81,7 +79,8 @@ app.use(passport.session());
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-}).then(() => console.log('MongoDB connected'))
+})
+  .then(() => console.log('MongoDB connected'))
   .catch((err) => console.error('Database connection error:', err));
 
 // ✅ Socket.IO logic

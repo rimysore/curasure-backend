@@ -1,7 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const MongoStore = require('connect-mongo');
-const mongoose = require('mongoose');
 const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
@@ -60,23 +58,19 @@ app.options('*', cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
-// Session
+// Session (using in-memory session store instead of MongoDB)
 app.use(cookieParser());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI, // MongoDB URI for session storage
-    collectionName: 'sessions',       // Name of the collection to store sessions
-    ttl: 14 * 24 * 60 * 60,           // Session expiration (2 weeks)
-  }),
+  // In-memory session store (no MongoDB)
+  store: new session.MemoryStore(),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Secure cookies in production
+    secure: process.env.NODE_ENV === 'production',  // Secure cookies in production
     httpOnly: true,                                // Prevent JavaScript access to cookies
     sameSite: 'None',                              // Allow cross-origin cookies
-    maxAge: 24 * 60 * 60 * 1000,
-    domain: 'curasure-frontend-production.onrender.com', // Ensure this is set correctly
+    maxAge: 24 * 60 * 60 * 1000,                   // Cookie expiration (1 day)
   }
 }));
 
@@ -84,13 +78,15 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ✅ MongoDB connect
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.error('Database connection error:', err));
+// ✅ MongoDB connect (optional for now, can be skipped if no MongoDB is used)
+if (process.env.MONGODB_URI) {
+  const mongoose = require('mongoose');
+  mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }).then(() => console.log('MongoDB connected'))
+    .catch((err) => console.error('Database connection error:', err));
+}
 
 // ✅ Socket.IO logic
 let onlineUsers = {};

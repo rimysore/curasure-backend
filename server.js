@@ -46,14 +46,25 @@ const io = socketIo(server, {
 });
 
 // ✅ CORS setup
-const allowedOrigins = [process.env.CLIENT_ORIGIN || 'https://curasure-frontend.onrender.com']; // Correctly set frontend URL
-console.log("Allowed Origin: ", process.env.CLIENT_ORIGIN);
+const allowedOrigins = [
+  'https://curasure-frontend.vercel.app',
+  'http://localhost:5173' // Optional: for local dev
+];
 
 app.use(cors({
-  origin: 'https://curasure-frontend.onrender.com',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow OPTIONS for preflight
-  credentials: true  // Allow credentials (cookies)
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed for this origin: ' + origin));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
 }));
+
+// Handle preflight OPTIONS requests for all routes
 app.options('*', cors());
 // Body parsers
 app.use(express.json());

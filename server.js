@@ -45,6 +45,17 @@ const io = socketIo(server, {
   }
 });
 
+// ✅ Trust Render's proxy for HTTPS
+app.set('trust proxy', 1);  // Add this line
+
+// ✅ Optional HTTPS redirect middleware (force HTTPS)
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect('https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
 // ✅ CORS setup
 const allowedOrigins = [
   'https://curasure-frontend.vercel.app',
@@ -53,7 +64,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -63,33 +73,32 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
-
-// Handle preflight OPTIONS requests for all routes
 app.options('*', cors());
-// Body parsers
+
+// ✅ Body parsers
 app.use(express.json());
 app.use(bodyParser.json());
 
-// Session
+// ✅ Session setup (secure cookies)
 app.use(cookieParser());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI, // MongoDB URI for session storage
-    collectionName: 'sessions',       // Name of the collection to store sessions
-    ttl: 14 * 24 * 60 * 60,           // Session expiration (2 weeks)
+    mongoUrl: process.env.MONGODB_URI,
+    collectionName: 'sessions',
+    ttl: 14 * 24 * 60 * 60,
   }),
   cookie: {
-    secure: false, // Secure cookies in production
-    httpOnly: true,                                // Prevent JavaScript access to cookies
-    sameSite: 'None',                              // Allow cross-origin cookies
-    maxAge: 24 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === 'production', // Secure cookies in production (enabled by trust proxy)
+    httpOnly: true,
+    sameSite: 'None',
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
-// Passport
+// ✅ Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -187,10 +196,10 @@ app.use('/api/covid-articles', covidArticleRoutes);
 app.use('/api', statisticsRoutes);
 app.use('/api/chat', chatRoutes);
 
-// Health check
+// ✅ Health check
 app.get('/', (req, res) => res.send('Chat server is running'));
 
-// Server start
+// ✅ Server start
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

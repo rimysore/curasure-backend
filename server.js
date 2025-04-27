@@ -53,7 +53,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow OPTIONS for preflight
   credentials: true  // Allow credentials (cookies)
 }));
-
+app.options('*', cors());
 // Body parsers
 app.use(express.json());
 app.use(bodyParser.json());

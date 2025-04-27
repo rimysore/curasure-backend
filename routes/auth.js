@@ -401,7 +401,7 @@ router.post('/forgot-password', async (req, res) => {
     user.resetTokenExpires = Date.now() + 3600000;
     await user.save();
 
-    const resetUrl = `${process.env.BASE_URL}/curasure/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.BASE_URL}/reset-password?token=${resetToken}`;
     transporter.sendMail({
       from: `Support <${process.env.MAIL_USER}>`,
       to: email,

@@ -128,8 +128,8 @@ io.on("connection", (socket) => {
 
     const receiverSocket = onlineUsers[receiverId];
     if (receiverSocket) {
-      io.to(receiverSocket).emit('receive-message', msg);
-      msg.delivered = true;
+      io.to(receiverSocket).emit('receive-message', msg);  // ✅ Receiver gets the message
+      msg.delivered = true;                                // ✅ Mark as delivered in DB
       await msg.save();
     }
   });
@@ -166,6 +166,12 @@ io.on("connection", (socket) => {
         { senderId, receiverId, delivered: false },
         { $set: { delivered: true } }
       );
+
+      // 🟢 Emit back to sender to update delivery status on their UI
+      const senderSocket = onlineUsers[senderId];
+      if (senderSocket) {
+        io.to(senderSocket).emit('message-delivered', { senderId, receiverId });
+      }
     } catch (err) {
       console.error("❌ Error updating delivery:", err);
     }
@@ -179,6 +185,7 @@ io.on("connection", (socket) => {
     }
   });
 });
+
 
 // ✅ Routes
 app.use('/api/auth', authRoutes);

@@ -40,8 +40,9 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: '*', // You can limit this in prod
+    origin: ['https://curasure-frontend.vercel.app'],  // 🟢 Exact frontend origin
     methods: ['GET', 'POST'],
+    credentials: true  // 🟢 Allow cookies/session
   }
 });
 

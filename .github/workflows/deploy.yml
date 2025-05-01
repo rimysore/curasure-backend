@@ -1,0 +1,32 @@
+name: CI/CD Pipeline - Curasure Backend
+
+on:
+  push:
+    branches:
+      - backend-release-phase1
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run Lint (Optional)
+      run: npm run lint || echo "Lint failed or skipped"
+
+    - name: Run Tests (Optional)
+      run: npm test || echo "Tests failed or skipped"
+
+    - name: Deploy to Render
+      run: |
+        curl -X POST "https://api.render.com/deploy/srv-d01unnjuibrs73b705r0?key=EfQy7J0rlfk"
